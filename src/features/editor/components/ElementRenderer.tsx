@@ -10,6 +10,8 @@ interface Props {
 }
 
 export function ElementRenderer({ element, isSelected, onPointerDown }: Props) {
+  if (element.visible === false) return null
+
   switch (element.type) {
     case 'rect':
       return (

@@ -20,7 +20,12 @@ interface EditorState {
   batchMoveElements: (moves: { id: string; x: number; y: number }[]) => void
   bringForward: (id: string) => void
   sendBackward: (id: string) => void
+  bringToFront: (id: string) => void
+  sendToBack: (id: string) => void
   duplicateElement: (id: string) => void
+  toggleElementVisibility: (id: string) => void
+  toggleElementLock: (id: string) => void
+  renameElement: (id: string, name: string) => void
 }
 
 export const useEditorStore = create<EditorState>()(
@@ -117,6 +122,22 @@ export const useEditorStore = create<EditorState>()(
           }
         }),
 
+      bringToFront: (id) =>
+        set((state) => {
+          const idx = state.elements.findIndex((e) => e.id === id)
+          if (idx < 0) return
+          const [el] = state.elements.splice(idx, 1)
+          state.elements.push(el)
+        }),
+
+      sendToBack: (id) =>
+        set((state) => {
+          const idx = state.elements.findIndex((e) => e.id === id)
+          if (idx < 0) return
+          const [el] = state.elements.splice(idx, 1)
+          state.elements.unshift(el)
+        }),
+
       duplicateElement: (id) =>
         set((state) => {
           const el = state.elements.find((e) => e.id === id)
@@ -124,6 +145,24 @@ export const useEditorStore = create<EditorState>()(
           const newEl = { ...el, id: generateId(), x: el.x + 20, y: el.y + 20 }
           state.elements.push(newEl)
           state.selectedIds = [newEl.id]
+        }),
+
+      toggleElementVisibility: (id) =>
+        set((state) => {
+          const el = state.elements.find((e) => e.id === id)
+          if (el) el.visible = !el.visible
+        }),
+
+      toggleElementLock: (id) =>
+        set((state) => {
+          const el = state.elements.find((e) => e.id === id)
+          if (el) el.locked = !el.locked
+        }),
+
+      renameElement: (id, name) =>
+        set((state) => {
+          const el = state.elements.find((e) => e.id === id)
+          if (el) el.name = name
         }),
     })),
     { limit: 50 }

@@ -1,6 +1,7 @@
 export interface BaseElement {
   id: string
   type: 'rect' | 'text' | 'circle'
+  name?: string
   x: number
   y: number
   width: number
@@ -8,6 +9,7 @@ export interface BaseElement {
   rotation: number
   opacity: number
   locked: boolean
+  visible: boolean
 }
 
 export interface RectElement extends BaseElement {
@@ -48,6 +50,7 @@ export function createRectElement(overrides?: Partial<RectElement>): RectElement
     rotation: 0,
     opacity: 1,
     locked: false,
+    visible: true,
     fill: '#6366f1',
     stroke: 'transparent',
     strokeWidth: 0,
@@ -67,6 +70,7 @@ export function createCircleElement(overrides?: Partial<CircleElement>): CircleE
     rotation: 0,
     opacity: 1,
     locked: false,
+    visible: true,
     fill: '#22c55e',
     stroke: 'transparent',
     strokeWidth: 0,
@@ -85,6 +89,7 @@ export function createTextElement(overrides?: Partial<TextElement>): TextElement
     rotation: 0,
     opacity: 1,
     locked: false,
+    visible: true,
     content: 'Text',
     fontSize: 24,
     fontWeight: 600,

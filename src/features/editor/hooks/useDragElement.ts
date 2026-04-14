@@ -2,6 +2,12 @@ import { useCallback, useRef } from 'react'
 import { useEditorStore } from '../stores/editorStore'
 import { useUIStore } from '../stores/uiStore'
 
+const GRID_STEP = 8
+
+function snapToGrid(v: number, enabled: boolean): number {
+  return enabled ? Math.round(v / GRID_STEP) * GRID_STEP : Math.round(v)
+}
+
 export function useDragElement() {
   const isDragging = useRef(false)
   const startPos = useRef({ x: 0, y: 0 })
@@ -10,30 +16,41 @@ export function useDragElement() {
   const selectElement = useEditorStore((s) => s.selectElement)
   const batchMoveElements = useEditorStore((s) => s.batchMoveElements)
   const zoom = useUIStore((s) => s.zoom)
+  const showGrid = useUIStore((s) => s.showGrid)
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent, elementId: string, elementX: number, elementY: number) => {
       e.stopPropagation()
       e.preventDefault()
 
-      // Shift+click: toggle element in/out of selection, don't drag
+      // Shift+click: toggle selection, no drag
       if (e.shiftKey) {
         selectElement(elementId, true)
         return
       }
 
-      // Determine which elements to drag
       const { selectedIds, elements } = useEditorStore.getState()
+
+      // Don't drag locked elements
+      const el = elements.find((e) => e.id === elementId)
+      if (el?.locked) {
+        selectElement(elementId)
+        return
+      }
+
       const isInMultiSelection = selectedIds.includes(elementId) && selectedIds.length > 1
 
       if (isInMultiSelection) {
-        // Drag all selected elements
-        startPositions.current = selectedIds.map((id) => {
-          const el = elements.find((e) => e.id === id)!
-          return { id, x: el.x, y: el.y }
-        })
+        startPositions.current = selectedIds
+          .filter((id) => {
+            const found = elements.find((e) => e.id === id)
+            return found && !found.locked
+          })
+          .map((id) => {
+            const found = elements.find((e) => e.id === id)!
+            return { id, x: found.x, y: found.y }
+          })
       } else {
-        // Select this element alone and drag it
         selectElement(elementId)
         startPositions.current = [{ id: elementId, x: elementX, y: elementY }]
       }
@@ -47,12 +64,13 @@ export function useDragElement() {
         if (!isDragging.current) return
         const dx = (ev.clientX - startPos.current.x) / zoom
         const dy = (ev.clientY - startPos.current.y) / zoom
+        const snap = showGrid
 
         batchMoveElements(
           startPositions.current.map(({ id, x, y }) => ({
             id,
-            x: Math.round(x + dx),
-            y: Math.round(y + dy),
+            x: snapToGrid(x + dx, snap),
+            y: snapToGrid(y + dy, snap),
           }))
         )
       }
@@ -67,7 +85,7 @@ export function useDragElement() {
       window.addEventListener('pointermove', handlePointerMove)
       window.addEventListener('pointerup', handlePointerUp)
     },
-    [selectElement, batchMoveElements, zoom]
+    [selectElement, batchMoveElements, zoom, showGrid]
   )
 
   return { handlePointerDown }
