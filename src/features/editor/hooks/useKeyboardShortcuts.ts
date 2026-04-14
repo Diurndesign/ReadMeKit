@@ -76,20 +76,31 @@ export function useKeyboardShortcuts() {
         paste()
       }
 
+      // Après undo/redo, le middleware temporal restaure `elements` mais PAS `selectedIds`.
+      // On filtre les IDs qui n'existent plus pour éviter "9 éléments" sur 3 calques.
+      const cleanStaleSelection = () => {
+        const { elements: els, selectedIds: sids } = useEditorStore.getState()
+        const valid = sids.filter((id) => els.some((e) => e.id === id))
+        if (valid.length !== sids.length) useEditorStore.getState().selectElements(valid)
+      }
+
       // Ctrl+Z — undo
       if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault()
         useEditorStore.temporal.getState().undo()
+        cleanStaleSelection()
       }
 
       // Ctrl+Shift+Z / Ctrl+Y — redo
       if ((e.metaKey || e.ctrlKey) && e.key === 'z' && e.shiftKey) {
         e.preventDefault()
         useEditorStore.temporal.getState().redo()
+        cleanStaleSelection()
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
         e.preventDefault()
         useEditorStore.temporal.getState().redo()
+        cleanStaleSelection()
       }
 
       // Ctrl+0 — reset view

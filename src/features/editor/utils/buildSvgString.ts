@@ -182,6 +182,9 @@ export function buildSvgString(
       } else {
         const anchor = el.textAlign === 'center' ? 'middle' : el.textAlign === 'right' ? 'end' : 'start'
         const tx = el.textAlign === 'center' ? cx : el.textAlign === 'right' ? el.x + el.width : el.x
+        // Escape " → &quot; : font-family contient souvent "Segoe UI" etc.
+        // Des guillemets non échappés dans un attribut XML cassent DOMParser → "SVG invalide"
+        const escapedFamily = el.fontFamily.replace(/"/g, '&quot;')
         const innerLines: string[] = []
         if (el.background) {
           const pad = el.bgPadding ?? 4
@@ -198,8 +201,8 @@ export function buildSvgString(
         const cls = emitDarkFill(el, el.fill, styleRules)
         innerLines.push(
           cls
-            ? `<text class="${cls}" font-size="${el.fontSize}" font-weight="${el.fontWeight}" font-family="${el.fontFamily}" text-anchor="${anchor}"${op}>\n${tspans}\n  </text>`
-            : `<text font-size="${el.fontSize}" font-weight="${el.fontWeight}" font-family="${el.fontFamily}" fill="${el.fill}" text-anchor="${anchor}"${op}>\n${tspans}\n  </text>`,
+            ? `<text class="${cls}" font-size="${el.fontSize}" font-weight="${el.fontWeight}" font-family="${escapedFamily}" text-anchor="${anchor}"${op}>\n${tspans}\n  </text>`
+            : `<text font-size="${el.fontSize}" font-weight="${el.fontWeight}" font-family="${escapedFamily}" fill="${el.fill}" text-anchor="${anchor}"${op}>\n${tspans}\n  </text>`,
         )
         body.push(...withRotation(innerLines, rot, cx, cy))
       }

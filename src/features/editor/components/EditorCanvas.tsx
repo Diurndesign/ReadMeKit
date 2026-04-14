@@ -22,6 +22,8 @@ function TextEditingOverlay({ element, svgRef, zoom, panOffset }: TextOverlayPro
   const updateElement = useEditorStore((s) => s.updateElement)
   const [value, setValue] = useState(element.content)
   const ref = useRef<HTMLTextAreaElement>(null)
+  // Snapshot du contenu au moment où l'édition démarre (pour annuler avec Escape)
+  const originalContent = useRef(element.content)
 
   const autoResize = () => {
     if (ref.current) {
@@ -36,27 +38,42 @@ function TextEditingOverlay({ element, svgRef, zoom, panOffset }: TextOverlayPro
     autoResize()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Pause l'historique d'annulation pendant la frappe pour éviter un undo-entry par touche.
+  // resume() au démontage enregistre l'état final comme un seul point d'annulation.
+  useEffect(() => {
+    useEditorStore.temporal.getState().pause()
+    return () => { useEditorStore.temporal.getState().resume() }
+  }, [])
+
   const svgRect = svgRef.current?.getBoundingClientRect() ?? { left: 0, top: 0 }
   const sx = svgRect.left + (element.x - panOffset.x) * zoom
   const sy = svgRect.top + (element.y - panOffset.y) * zoom
   const sw = element.width * zoom
   const sh = Math.max(element.height, element.fontSize * 1.4) * zoom
 
-  const commit = () => {
-    updateElement(element.id, { content: value })
-    setEditingId(null)
-  }
+  // Le contenu est déjà dans le store (sync live) — on ferme juste l'overlay
+  const commit = () => { setEditingId(null) }
 
   return (
     <textarea
       ref={ref}
       autoFocus
       value={value}
-      onChange={(e) => { setValue(e.target.value); autoResize() }}
+      onChange={(e) => {
+        setValue(e.target.value)
+        // Sync live vers le store : panneau de propriétés & canvas se mettent à jour en temps réel
+        updateElement(element.id, { content: e.target.value })
+        autoResize()
+      }}
       onBlur={commit}
       onKeyDown={(e) => {
-        if (e.key === 'Escape') { setEditingId(null); return }
-        // Ctrl+Enter / Cmd+Enter = commit; plain Enter = insert newline
+        if (e.key === 'Escape') {
+          // Annuler : restaurer le contenu original avant édition
+          updateElement(element.id, { content: originalContent.current })
+          setEditingId(null)
+          return
+        }
+        // Ctrl+Enter / Cmd+Enter = valider ; Enter seul = saut de ligne
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); commit(); return }
         e.stopPropagation()
       }}
