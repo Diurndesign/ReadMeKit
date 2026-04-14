@@ -4,7 +4,7 @@ import { useUIStore } from '../stores/uiStore'
 import { TEMPLATES } from '../data/templates'
 
 // Icon + accent color per template
-const TEMPLATE_META: Record<string, { Icon: React.FC<{ size?: number; className?: string }>; accent: string; bg: string }> = {
+const TEMPLATE_META: Record<string, { Icon: React.FC<{ size?: number; className?: string; style?: React.CSSProperties }>; accent: string; bg: string }> = {
   hero:         { Icon: Layout,    accent: '#818cf8', bg: '#1e1b4b' },
   features:     { Icon: Zap,       accent: '#34d399', bg: '#022c22' },
   badges:       { Icon: Tag,       accent: '#38bdf8', bg: '#0c1a29' },

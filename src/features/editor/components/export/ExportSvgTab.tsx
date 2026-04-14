@@ -12,7 +12,7 @@
 import { useState, useEffect } from 'react'
 import jsPDF from 'jspdf'
 import {
-  Copy, Check, Download, AlertTriangle, Loader2,
+  Copy, Check, AlertTriangle, Loader2,
   FileCode, Image as ImageIcon, FileText, Sun, Moon,
 } from 'lucide-react'
 import { useEditorStore } from '../../stores/editorStore'

@@ -5,7 +5,6 @@ import type {
   TextElement,
   CircleElement,
   LineElement,
-  EditorElement,
 } from '../types/elements'
 
 // ── Factories ────────────────────────────────────────────────

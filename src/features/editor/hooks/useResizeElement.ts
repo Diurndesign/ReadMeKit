@@ -76,14 +76,15 @@ export function useResizeElement() {
             nh = nw / ar
           } else {
             // corner — let the larger delta drive
+            const hc = h as ResizeHandle
             const dw = Math.abs(nw - width)
             const dh = Math.abs(nh - height)
             if (dw >= dh) {
               nh = nw / ar
-              if (h === 'nw' || h === 'n' || h === 'ne') ny = y + height - nh
+              if (hc === 'nw' || hc === 'n' || hc === 'ne') ny = y + height - nh
             } else {
               nw = nh * ar
-              if (h === 'nw' || h === 'w' || h === 'sw') nx = x + width - nw
+              if (hc === 'nw' || hc === 'w' || hc === 'sw') nx = x + width - nw
             }
           }
         }
