@@ -4,6 +4,7 @@ import { PropertyPanel } from '@/features/editor/components/PropertyPanel'
 import { LayerPanel } from '@/features/editor/components/LayerPanel'
 import { OnboardingOverlay } from '@/features/editor/components/OnboardingOverlay'
 import { TemplatesPanel } from '@/features/editor/components/TemplatesPanel'
+import { ShortcutsModal } from '@/features/editor/components/ShortcutsModal'
 import { useKeyboardShortcuts } from '@/features/editor/hooks/useKeyboardShortcuts'
 import { useAutoSave } from '@/features/editor/hooks/useAutoSave'
 
@@ -21,6 +22,7 @@ export default function App() {
       </div>
       <OnboardingOverlay />
       <TemplatesPanel />
+      <ShortcutsModal />
     </div>
   )
 }

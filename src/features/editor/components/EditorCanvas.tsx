@@ -3,10 +3,10 @@ import { useEditorStore } from '../stores/editorStore'
 import { useUIStore } from '../stores/uiStore'
 import { useDragElement } from '../hooks/useDragElement'
 import { ElementRenderer } from './ElementRenderer'
-import { createRectElement, createTextElement, createCircleElement } from '../types/elements'
+import { createRectElement, createTextElement, createCircleElement, createLineElement, createImageElement } from '../types/elements'
 import type { TextElement } from '../types/elements'
 import { generateId } from '@/utils/generateId'
-import { Square, Type, Circle } from 'lucide-react'
+import { Square, Type, Circle, Minus, Image } from 'lucide-react'
 
 // ─── Inline text editing overlay ────────────────────────────────────────────
 
@@ -23,10 +23,18 @@ function TextEditingOverlay({ element, svgRef, zoom, panOffset }: TextOverlayPro
   const [value, setValue] = useState(element.content)
   const ref = useRef<HTMLTextAreaElement>(null)
 
+  const autoResize = () => {
+    if (ref.current) {
+      ref.current.style.height = 'auto'
+      ref.current.style.height = `${ref.current.scrollHeight}px`
+    }
+  }
+
   useEffect(() => {
     ref.current?.focus()
     ref.current?.select()
-  }, [])
+    autoResize()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const svgRect = svgRef.current?.getBoundingClientRect() ?? { left: 0, top: 0 }
   const sx = svgRect.left + (element.x - panOffset.x) * zoom
@@ -43,11 +51,12 @@ function TextEditingOverlay({ element, svgRef, zoom, panOffset }: TextOverlayPro
     <textarea
       ref={ref}
       value={value}
-      onChange={(e) => setValue(e.target.value)}
+      onChange={(e) => { setValue(e.target.value); autoResize() }}
       onBlur={commit}
       onKeyDown={(e) => {
         if (e.key === 'Escape') { setEditingId(null); return }
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commit() }
+        // Ctrl+Enter / Cmd+Enter = commit; plain Enter = insert newline
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); commit(); return }
         e.stopPropagation()
       }}
       style={{
@@ -56,6 +65,7 @@ function TextEditingOverlay({ element, svgRef, zoom, panOffset }: TextOverlayPro
         top: sy,
         width: sw,
         minHeight: sh,
+        height: 'auto',
         fontSize: element.fontSize * zoom,
         fontWeight: element.fontWeight,
         fontFamily: element.fontFamily,
@@ -68,7 +78,7 @@ function TextEditingOverlay({ element, svgRef, zoom, panOffset }: TextOverlayPro
         margin: 0,
         outline: 'none',
         resize: 'none',
-        lineHeight: 1.2,
+        lineHeight: 1.3,
         zIndex: 100,
         caretColor: element.fill,
         overflow: 'hidden',
@@ -100,6 +110,8 @@ function EmptyCanvasHint() {
             { tool: 'rect' as const, icon: <Square size={16} />, label: 'Rectangle', shortcut: 'R' },
             { tool: 'text' as const, icon: <Type size={16} />, label: 'Texte', shortcut: 'T' },
             { tool: 'circle' as const, icon: <Circle size={16} />, label: 'Cercle', shortcut: 'O' },
+            { tool: 'line' as const, icon: <Minus size={16} />, label: 'Ligne', shortcut: 'L' },
+            { tool: 'image' as const, icon: <Image size={16} />, label: 'Image', shortcut: 'I' },
           ].map(({ tool, icon, label, shortcut }) => (
             <button
               key={tool}
@@ -142,7 +154,14 @@ export function EditorCanvas() {
   const setPanOffset = useUIStore((s) => s.setPanOffset)
   const editingId = useUIStore((s) => s.editingId)
   const canvasBg = useUIStore((s) => s.canvasBg)
+  const canvasWidth = useUIStore((s) => s.canvasWidth)
+  const canvasHeight = useUIStore((s) => s.canvasHeight)
+  const snapGuides = useUIStore((s) => s.snapGuides)
   const { handlePointerDown } = useDragElement()
+
+  // Line drawing state
+  const [drawingLine, setDrawingLine] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null)
+  const isDrawingLine = useRef(false)
 
   const svgRef = useRef<SVGSVGElement>(null)
   const spaceHeld = useRef(false)
@@ -182,19 +201,25 @@ export function EditorCanvas() {
     return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp) }
   }, [])
 
-  // Ctrl+wheel zoom centered on cursor
+  // Wheel: Ctrl = zoom centered on cursor; otherwise = pan
   const handleWheel = useCallback((e: WheelEvent) => {
-    if (!(e.ctrlKey || e.metaKey)) return
     e.preventDefault()
-    const factor = e.deltaY < 0 ? 1.1 : 0.9
-    const newZoom = Math.max(0.1, Math.min(5, zoom * factor))
-    const rect = svgRef.current!.getBoundingClientRect()
-    const mx = e.clientX - rect.left
-    const my = e.clientY - rect.top
-    const newPanX = mx / zoom + panOffset.x - mx / newZoom
-    const newPanY = my / zoom + panOffset.y - my / newZoom
-    setZoom(newZoom)
-    setPanOffset({ x: newPanX, y: newPanY })
+    if (e.ctrlKey || e.metaKey) {
+      const factor = e.deltaY < 0 ? 1.1 : 0.9
+      const newZoom = Math.max(0.1, Math.min(5, zoom * factor))
+      const rect = svgRef.current!.getBoundingClientRect()
+      const mx = e.clientX - rect.left
+      const my = e.clientY - rect.top
+      const newPanX = mx / zoom + panOffset.x - mx / newZoom
+      const newPanY = my / zoom + panOffset.y - my / newZoom
+      setZoom(newZoom)
+      setPanOffset({ x: newPanX, y: newPanY })
+    } else {
+      // Scroll = pan (trackpad-friendly; deltaX for horizontal, deltaY for vertical)
+      const dx = e.deltaX / zoom
+      const dy = e.deltaY / zoom
+      setPanOffset({ x: panOffset.x + dx, y: panOffset.y + dy })
+    }
   }, [zoom, panOffset, setZoom, setPanOffset])
 
   useEffect(() => {
@@ -213,8 +238,8 @@ export function EditorCanvas() {
   }
 
   const handleSvgPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
-    // Space+drag to pan
-    if (spaceHeld.current) {
+    // Middle-click or Space+drag → pan (can start from any element)
+    if (e.button === 1 || spaceHeld.current) {
       e.preventDefault()
       isPanning.current = true
       panStart.current = { x: e.clientX, y: e.clientY }
@@ -224,7 +249,7 @@ export function EditorCanvas() {
       return
     }
 
-    // Only handle direct SVG background clicks
+    // Only handle direct SVG background clicks (left button)
     if (e.target !== e.currentTarget) return
 
     const { x, y } = screenToCanvas(e.clientX, e.clientY)
@@ -238,6 +263,14 @@ export function EditorCanvas() {
     } else if (activeTool === 'circle') {
       addElement(createCircleElement({ id: generateId(), x: Math.round(x - 60), y: Math.round(y - 60) }))
       setActiveTool('select')
+    } else if (activeTool === 'image') {
+      addElement(createImageElement({ id: generateId(), x: Math.round(x - 120), y: Math.round(y - 80) }))
+      setActiveTool('select')
+    } else if (activeTool === 'line') {
+      // Start drawing a line — track drag
+      isDrawingLine.current = true
+      setDrawingLine({ x1: x, y1: y, x2: x, y2: y })
+      ;(e.target as Element).setPointerCapture(e.pointerId)
     } else {
       // Begin marquee selection
       marqueeStart.current = { x, y }
@@ -251,6 +284,12 @@ export function EditorCanvas() {
       const dx = (e.clientX - panStart.current.x) / zoom
       const dy = (e.clientY - panStart.current.y) / zoom
       setPanOffset({ x: panStartOffset.current.x - dx, y: panStartOffset.current.y - dy })
+      return
+    }
+
+    if (isDrawingLine.current && drawingLine) {
+      const { x, y } = screenToCanvas(e.clientX, e.clientY)
+      setDrawingLine((prev) => prev ? { ...prev, x2: x, y2: y } : null)
       return
     }
 
@@ -277,12 +316,32 @@ export function EditorCanvas() {
       return
     }
 
+    if (isDrawingLine.current && drawingLine) {
+      isDrawingLine.current = false
+      const dx = drawingLine.x2 - drawingLine.x1
+      const dy = drawingLine.y2 - drawingLine.y1
+      // Only create if drag was meaningful (> 8px)
+      if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+        addElement(createLineElement({
+          id: generateId(),
+          x: Math.round(drawingLine.x1),
+          y: Math.round(drawingLine.y1),
+          width: Math.round(dx),
+          height: Math.round(dy),
+        }))
+      }
+      setDrawingLine(null)
+      setActiveTool('select')
+      return
+    }
+
     if (marqueeStart.current) {
       if (isDraggingMarquee.current && marquee) {
         const { x, y, w, h } = marquee
-        const hit = elements.filter(
-          (el) => el.x < x + w && el.x + el.width > x && el.y < y + h && el.y + el.height > y
-        )
+        const hit = elements.filter((el) => {
+          const bb = getElementBBox(el)
+          return bb.x < x + w && bb.x + bb.w > x && bb.y < y + h && bb.y + bb.h > y
+        })
         if (e.shiftKey) {
           const current = useEditorStore.getState().selectedIds
           const merged = Array.from(new Set([...current, ...hit.map((el) => el.id)]))
@@ -313,6 +372,18 @@ export function EditorCanvas() {
   }
 
   const cursorStyle = activeTool !== 'select' ? 'crosshair' : 'default'
+  // Marquee hit test — handles lines with negative w/h
+  const getElementBBox = (el: { x: number; y: number; width: number; height: number; type: string }) => {
+    if (el.type === 'line') {
+      return {
+        x: Math.min(el.x, el.x + el.width),
+        y: Math.min(el.y, el.y + el.height),
+        w: Math.abs(el.width) || 1,
+        h: Math.abs(el.height) || 1,
+      }
+    }
+    return { x: el.x, y: el.y, w: el.width, h: el.height }
+  }
   const groupTransform = `scale(${zoom}) translate(${-panOffset.x}, ${-panOffset.y})`
 
   return (
@@ -350,6 +421,29 @@ export function EditorCanvas() {
             <rect x={-10000} y={-10000} width={20000} height={20000} fill={canvasBg} pointerEvents="none" />
           )}
 
+          {/* Canvas frame (when size is set) */}
+          {canvasWidth && canvasHeight && (
+            <>
+              <rect
+                x={0} y={0} width={canvasWidth} height={canvasHeight}
+                fill="none"
+                stroke="#3f3f46"
+                strokeWidth={1 / zoom}
+                strokeDasharray={`${4 / zoom} ${2 / zoom}`}
+                pointerEvents="none"
+              />
+              <text
+                x={0} y={-6 / zoom}
+                fontSize={10 / zoom}
+                fill="#52525b"
+                fontFamily="system-ui, sans-serif"
+                pointerEvents="none"
+              >
+                {canvasWidth} × {canvasHeight}
+              </text>
+            </>
+          )}
+
           {/* Elements */}
           {elements.map((element) => (
             <ElementRenderer
@@ -369,11 +463,37 @@ export function EditorCanvas() {
             />
           )}
 
+          {/* Line drawing preview */}
+          {drawingLine && (
+            <line
+              x1={drawingLine.x1} y1={drawingLine.y1}
+              x2={drawingLine.x2} y2={drawingLine.y2}
+              stroke="#6366f1" strokeWidth={2} strokeDasharray="4 2"
+              pointerEvents="none"
+            />
+          )}
+
           {/* Marquee selection rect */}
           {marquee && (
             <rect
               x={marquee.x} y={marquee.y} width={marquee.w} height={marquee.h}
               fill="rgba(99,102,241,0.08)" stroke="#6366f1" strokeWidth={1} strokeDasharray="4 2"
+              pointerEvents="none"
+            />
+          )}
+
+          {/* Smart alignment guides */}
+          {snapGuides.x !== undefined && (
+            <line
+              x1={snapGuides.x} y1={-10000} x2={snapGuides.x} y2={10000}
+              stroke="#f59e0b" strokeWidth={1 / zoom}
+              pointerEvents="none"
+            />
+          )}
+          {snapGuides.y !== undefined && (
+            <line
+              x1={-10000} y1={snapGuides.y} x2={10000} y2={snapGuides.y}
+              stroke="#f59e0b" strokeWidth={1 / zoom}
               pointerEvents="none"
             />
           )}

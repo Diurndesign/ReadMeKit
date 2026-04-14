@@ -1,13 +1,14 @@
+import { useState, useRef, useEffect } from 'react'
 import {
   Copy, ChevronUp, ChevronDown, X, AlignLeft, AlignCenter, AlignRight,
-  Trash2, Square, Circle, Type, Move,
+  Trash2, Square, Circle, Type, Move, Minus, Image,
   AlignStartVertical, AlignCenterVertical, AlignEndVertical,
   AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround,
 } from 'lucide-react'
 import { useEditorStore } from '../stores/editorStore'
 import { useUIStore } from '../stores/uiStore'
-import type { EditorElement, RectElement, TextElement, CircleElement } from '../types/elements'
+import type { EditorElement, RectElement, TextElement, CircleElement, LineElement, ImageElement } from '../types/elements'
 import { cn } from '@/utils/cn'
 
 // ─── Base input components ────────────────────────────────────────────────────
@@ -15,6 +16,38 @@ import { cn } from '@/utils/cn'
 function PropertyInput({
   label, value, type = 'text', onChange,
 }: { label: string; value: string | number; type?: string; onChange: (v: string) => void }) {
+  const isFocused = useRef(false)
+  const [local, setLocal] = useState(
+    type === 'number' ? String(Math.round(Number(value))) : String(value)
+  )
+
+  // Sync external changes while not focused (e.g. arrow key nudge)
+  useEffect(() => {
+    if (!isFocused.current) {
+      setLocal(type === 'number' ? String(Math.round(Number(value))) : String(value))
+    }
+  }, [value, type])
+
+  if (type === 'number') {
+    return (
+      <div className="flex items-center gap-2">
+        <label className="text-xs text-[#71717a] w-8 shrink-0 text-right">{label}</label>
+        <input
+          type="number"
+          value={local}
+          onChange={(e) => setLocal(e.target.value)}
+          onFocus={(e) => { isFocused.current = true; e.target.select() }}
+          onBlur={() => { isFocused.current = false; onChange(local) }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur()
+            e.stopPropagation()
+          }}
+          className="flex-1 h-7 px-2 text-xs bg-[#0f0f11] border border-[#2e2e33] rounded text-[#e4e4e7] focus:outline-none focus:border-[#6366f1] transition-colors tabular-nums"
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-center gap-2">
       <label className="text-xs text-[#71717a] w-8 shrink-0 text-right">{label}</label>
@@ -22,6 +55,7 @@ function PropertyInput({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => e.stopPropagation()}
         className="flex-1 h-7 px-2 text-xs bg-[#0f0f11] border border-[#2e2e33] rounded text-[#e4e4e7] focus:outline-none focus:border-[#6366f1] transition-colors tabular-nums"
       />
     </div>
@@ -97,11 +131,66 @@ function CommonProperties({ element, onUpdate }: { element: EditorElement; onUpd
 
 // ─── Type-specific properties ─────────────────────────────────────────────────
 
+function GradientToggle({ active, onToggle }: { active: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      className={cn(
+        'relative w-9 h-5 rounded-full transition-colors shrink-0',
+        active ? 'bg-[#6366f1]' : 'bg-[#27272a]',
+      )}
+    >
+      <span
+        className={cn(
+          'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform',
+          active ? 'translate-x-4' : 'translate-x-0',
+        )}
+      />
+    </button>
+  )
+}
+
 function RectProperties({ element, onUpdate }: { element: RectElement; onUpdate: (u: Partial<RectElement>) => void }) {
+  const hasGradient = !!(element.gradientFrom && element.gradientTo)
   return (
     <>
       <SectionLabel>Remplissage</SectionLabel>
-      <ColorInput label="Fill" value={element.fill} onChange={(v) => onUpdate({ fill: v })} />
+      {!hasGradient && (
+        <ColorInput label="Fill" value={element.fill} onChange={(v) => onUpdate({ fill: v })} />
+      )}
+      <div className="flex items-center justify-between mt-1.5">
+        <span className="text-xs text-[#71717a]">Dégradé</span>
+        <GradientToggle
+          active={hasGradient}
+          onToggle={() => {
+            if (hasGradient) {
+              onUpdate({ gradientFrom: undefined, gradientTo: undefined, gradientAngle: undefined })
+            } else {
+              onUpdate({ gradientFrom: element.fill, gradientTo: '#ec4899', gradientAngle: 90 })
+            }
+          }}
+        />
+      </div>
+      {hasGradient && (
+        <>
+          <div className="mt-1.5 space-y-1.5">
+            <ColorInput label="De" value={element.gradientFrom!} onChange={(v) => onUpdate({ gradientFrom: v })} />
+            <ColorInput label="À" value={element.gradientTo!} onChange={(v) => onUpdate({ gradientTo: v })} />
+          </div>
+          <div className="flex items-center gap-2 mt-1.5">
+            <label className="text-xs text-[#71717a] w-8 shrink-0 text-right">°</label>
+            <input
+              type="range" min="0" max="360" step="15"
+              value={element.gradientAngle ?? 90}
+              onChange={(e) => onUpdate({ gradientAngle: Number(e.target.value) })}
+              className="flex-1 accent-[#6366f1] h-1"
+            />
+            <span className="text-xs text-[#71717a] w-9 text-right tabular-nums">
+              {element.gradientAngle ?? 90}°
+            </span>
+          </div>
+        </>
+      )}
       <SectionLabel>Bordure</SectionLabel>
       <ColorInput label="Coul." value={element.stroke === 'transparent' ? '#000000' : element.stroke} onChange={(v) => onUpdate({ stroke: v })} />
       <div className="grid grid-cols-2 gap-1.5 mt-1.5">
@@ -113,10 +202,46 @@ function RectProperties({ element, onUpdate }: { element: RectElement; onUpdate:
 }
 
 function CircleProperties({ element, onUpdate }: { element: CircleElement; onUpdate: (u: Partial<CircleElement>) => void }) {
+  const hasGradient = !!(element.gradientFrom && element.gradientTo)
   return (
     <>
       <SectionLabel>Remplissage</SectionLabel>
-      <ColorInput label="Fill" value={element.fill} onChange={(v) => onUpdate({ fill: v })} />
+      {!hasGradient && (
+        <ColorInput label="Fill" value={element.fill} onChange={(v) => onUpdate({ fill: v })} />
+      )}
+      <div className="flex items-center justify-between mt-1.5">
+        <span className="text-xs text-[#71717a]">Dégradé</span>
+        <GradientToggle
+          active={hasGradient}
+          onToggle={() => {
+            if (hasGradient) {
+              onUpdate({ gradientFrom: undefined, gradientTo: undefined, gradientAngle: undefined })
+            } else {
+              onUpdate({ gradientFrom: element.fill, gradientTo: '#a78bfa', gradientAngle: 90 })
+            }
+          }}
+        />
+      </div>
+      {hasGradient && (
+        <>
+          <div className="mt-1.5 space-y-1.5">
+            <ColorInput label="De" value={element.gradientFrom!} onChange={(v) => onUpdate({ gradientFrom: v })} />
+            <ColorInput label="À" value={element.gradientTo!} onChange={(v) => onUpdate({ gradientTo: v })} />
+          </div>
+          <div className="flex items-center gap-2 mt-1.5">
+            <label className="text-xs text-[#71717a] w-8 shrink-0 text-right">°</label>
+            <input
+              type="range" min="0" max="360" step="15"
+              value={element.gradientAngle ?? 90}
+              onChange={(e) => onUpdate({ gradientAngle: Number(e.target.value) })}
+              className="flex-1 accent-[#6366f1] h-1"
+            />
+            <span className="text-xs text-[#71717a] w-9 text-right tabular-nums">
+              {element.gradientAngle ?? 90}°
+            </span>
+          </div>
+        </>
+      )}
       <SectionLabel>Bordure</SectionLabel>
       <ColorInput label="Coul." value={element.stroke === 'transparent' ? '#000000' : element.stroke} onChange={(v) => onUpdate({ stroke: v })} />
       <div className="mt-1.5">
@@ -137,6 +262,22 @@ function TextProperties({ element, onUpdate }: { element: TextElement; onUpdate:
         className="w-full px-2 py-1.5 text-xs bg-[#0f0f11] border border-[#2e2e33] rounded text-[#e4e4e7] focus:outline-none focus:border-[#6366f1] transition-colors resize-none leading-relaxed"
       />
       <SectionLabel>Typographie</SectionLabel>
+      <div className="flex flex-wrap gap-1 mb-1.5">
+        {[12, 16, 20, 24, 32, 48].map((s) => (
+          <button
+            key={s}
+            onClick={() => onUpdate({ fontSize: s })}
+            className={cn(
+              'h-5 px-1.5 text-[10px] rounded border transition-colors tabular-nums',
+              element.fontSize === s
+                ? 'bg-[#6366f1] border-[#6366f1] text-white'
+                : 'bg-[#0f0f11] border-[#2e2e33] text-[#52525b] hover:border-[#6366f1] hover:text-[#e4e4e7]',
+            )}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
       <div className="grid grid-cols-2 gap-1.5">
         <PropertyInput label="Sz" value={element.fontSize} type="number" onChange={(v) => onUpdate({ fontSize: Math.max(8, Number(v)) })} />
         <div className="flex items-center gap-2">
@@ -181,16 +322,111 @@ function TextProperties({ element, onUpdate }: { element: TextElement; onUpdate:
       </div>
       <SectionLabel>Couleur</SectionLabel>
       <ColorInput label="Fill" value={element.fill} onChange={(v) => onUpdate({ fill: v })} />
+      <SectionLabel>Fond du texte</SectionLabel>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs text-[#71717a]">Activer</span>
+        <button
+          onClick={() => onUpdate({ background: element.background ? undefined : '#18181b' })}
+          className={cn(
+            'relative w-9 h-5 rounded-full transition-colors shrink-0',
+            element.background ? 'bg-[#6366f1]' : 'bg-[#27272a]',
+          )}
+        >
+          <span
+            className={cn(
+              'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform',
+              element.background ? 'translate-x-4' : 'translate-x-0',
+            )}
+          />
+        </button>
+      </div>
+      {element.background && (
+        <>
+          <ColorInput label="Coul." value={element.background} onChange={(v) => onUpdate({ background: v })} />
+          <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+            <PropertyInput label="Pad" value={element.bgPadding ?? 4} type="number" onChange={(v) => onUpdate({ bgPadding: Math.max(0, Number(v)) })} />
+            <PropertyInput label="Rx" value={element.bgRadius ?? 4} type="number" onChange={(v) => onUpdate({ bgRadius: Math.max(0, Number(v)) })} />
+          </div>
+        </>
+      )}
     </>
   )
 }
 
 // ─── Type icon ────────────────────────────────────────────────────────────────
 
+function LineProperties({ element, onUpdate }: { element: LineElement; onUpdate: (u: Partial<LineElement>) => void }) {
+  return (
+    <>
+      <SectionLabel>Trait</SectionLabel>
+      <ColorInput label="Coul." value={element.stroke} onChange={(v) => onUpdate({ stroke: v })} />
+      <div className="mt-1.5">
+        <PropertyInput label="Ép." value={element.strokeWidth} type="number" onChange={(v) => onUpdate({ strokeWidth: Math.max(1, Number(v)) })} />
+      </div>
+      <SectionLabel>Style</SectionLabel>
+      <div className="flex gap-1">
+        {(['solid', 'dashed', 'dotted'] as const).map((d) => (
+          <button
+            key={d}
+            onClick={() => onUpdate({ strokeDash: d })}
+            className={cn(
+              'flex-1 h-7 text-[10px] rounded border transition-colors',
+              element.strokeDash === d
+                ? 'bg-[#6366f1] border-[#6366f1] text-white'
+                : 'bg-[#0f0f11] border-[#2e2e33] text-[#71717a] hover:border-[#6366f1] hover:text-white',
+            )}
+          >
+            {d === 'solid' ? '—' : d === 'dashed' ? '- -' : '···'}
+          </button>
+        ))}
+      </div>
+      <SectionLabel>Flèches</SectionLabel>
+      <div className="flex gap-1">
+        <button
+          onClick={() => onUpdate({ arrowStart: !element.arrowStart })}
+          className={cn(
+            'flex-1 h-7 text-[10px] rounded border transition-colors',
+            element.arrowStart ? 'bg-[#6366f1] border-[#6366f1] text-white' : 'bg-[#0f0f11] border-[#2e2e33] text-[#71717a] hover:border-[#6366f1]',
+          )}
+        >← Début</button>
+        <button
+          onClick={() => onUpdate({ arrowEnd: !element.arrowEnd })}
+          className={cn(
+            'flex-1 h-7 text-[10px] rounded border transition-colors',
+            element.arrowEnd ? 'bg-[#6366f1] border-[#6366f1] text-white' : 'bg-[#0f0f11] border-[#2e2e33] text-[#71717a] hover:border-[#6366f1]',
+          )}
+        >Fin →</button>
+      </div>
+    </>
+  )
+}
+
+function ImageProperties({ element, onUpdate }: { element: ImageElement; onUpdate: (u: Partial<ImageElement>) => void }) {
+  return (
+    <>
+      <SectionLabel>URL de l'image</SectionLabel>
+      <div className="flex items-center gap-2">
+        <input
+          type="url"
+          value={element.src}
+          onChange={(e) => onUpdate({ src: e.target.value })}
+          placeholder="https://..."
+          className="flex-1 h-7 px-2 text-xs bg-[#0f0f11] border border-[#2e2e33] rounded text-[#e4e4e7] focus:outline-none focus:border-[#6366f1] transition-colors font-mono"
+        />
+      </div>
+      <p className="text-[10px] text-[#3f3f46] mt-1 leading-relaxed">
+        URL directe vers une image (.png, .jpg, .svg…)
+      </p>
+    </>
+  )
+}
+
 function TypeIcon({ type }: { type: string }) {
   if (type === 'rect') return <Square size={12} />
   if (type === 'circle') return <Circle size={12} />
   if (type === 'text') return <Type size={12} />
+  if (type === 'line') return <Minus size={12} />
+  if (type === 'image') return <Image size={12} />
   return <Move size={12} />
 }
 
@@ -365,7 +601,7 @@ export function PropertyPanel() {
   if (!selectedElement) return null
 
   const handleUpdate = (updates: Partial<EditorElement>) => updateElement(selectedElement.id, updates)
-  const TYPE_LABELS: Record<string, string> = { rect: 'Rectangle', text: 'Texte', circle: 'Cercle' }
+  const TYPE_LABELS: Record<string, string> = { rect: 'Rectangle', text: 'Texte', circle: 'Cercle', line: 'Ligne', image: 'Image' }
 
   return (
     <div data-onboarding="panel" className="w-60 border-l border-[#2e2e33] bg-[#18181b] overflow-y-auto">
@@ -419,6 +655,12 @@ export function PropertyPanel() {
         )}
         {selectedElement.type === 'text' && (
           <TextProperties element={selectedElement} onUpdate={handleUpdate} />
+        )}
+        {selectedElement.type === 'line' && (
+          <LineProperties element={selectedElement} onUpdate={handleUpdate} />
+        )}
+        {selectedElement.type === 'image' && (
+          <ImageProperties element={selectedElement} onUpdate={handleUpdate} />
         )}
 
         <Divider />
