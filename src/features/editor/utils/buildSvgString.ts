@@ -1,11 +1,9 @@
 /**
  * Core SVG builder — converts EditorElements into an exportable SVG string.
- * Shared between EditorToolbar (quick exports) and ExportDialog (full export).
  *
  * Dark mode support:
- *  1. Canvas background: opts.darkBg → @media rule on #rmk-bg
- *  2. Per-element: el.darkFill  → CSS class .rmk-dk-{id} with @media rule
- *
+ *  1. Canvas background : opts.darkBg  → @media rule on #rmk-bg
+ *  2. Per-element       : el.darkFill  → CSS class .rmk-dk-{id} with @media rule
  * Both are emitted in a single consolidated <style> block inside <defs>.
  * GitHub's SVG renderer supports <style> and @media(prefers-color-scheme).
  */
@@ -15,26 +13,19 @@ import type { EditorElement } from '../types/elements'
 const PAD = 20
 
 export interface BuildSvgOptions {
-  /**
-   * Adds @media(prefers-color-scheme:dark){#rmk-bg{fill:darkBg}} so the
-   * canvas background switches automatically. Only applied when canvasBg
-   * is also set (non-transparent).
-   */
+  /** Adds @media dark-mode rule on the canvas background rect. */
   darkBg?: string
-  /**
-   * Rasterize TextElements via canvas instead of emitting SVG <text> nodes.
-   * Makes the SVG font-independent at the cost of vector sharpness.
-   */
+  /** Rasterize TextElements via canvas PNG instead of <text> nodes. */
   rasterizeText?: boolean
 }
+
+// ── Private helpers ────────────────────────────────────────────────────────────
 
 function svgGradientCoords(angleDeg: number) {
   const a = (angleDeg * Math.PI) / 180
   return {
-    x1: `${50 - 50 * Math.sin(a)}%`,
-    y1: `${50 - 50 * Math.cos(a)}%`,
-    x2: `${50 + 50 * Math.sin(a)}%`,
-    y2: `${50 + 50 * Math.cos(a)}%`,
+    x1: `${50 - 50 * Math.sin(a)}%`, y1: `${50 - 50 * Math.cos(a)}%`,
+    x2: `${50 + 50 * Math.sin(a)}%`, y2: `${50 + 50 * Math.cos(a)}%`,
   }
 }
 
@@ -42,6 +33,35 @@ function withRotation(lines: string[], rotation: number, cx: number, cy: number)
   if (!rotation) return lines
   return [`  <g transform="rotate(${rotation}, ${cx}, ${cy})">`, ...lines.map((l) => '  ' + l), `  </g>`]
 }
+
+/** Creates a linearGradient def if the element has gradient fields; returns the fill value. */
+function resolveGradient(
+  el: { id: string; fill: string; gradientFrom?: string; gradientTo?: string; gradientAngle?: number },
+  defs: string[],
+): string {
+  if (!el.gradientFrom || !el.gradientTo) return el.fill
+  const id = `grad-${el.id}`
+  const gc = svgGradientCoords(el.gradientAngle ?? 90)
+  defs.push(
+    `  <linearGradient id="${id}" x1="${gc.x1}" y1="${gc.y1}" x2="${gc.x2}" y2="${gc.y2}">` +
+    `<stop offset="0%" stop-color="${el.gradientFrom}"/><stop offset="100%" stop-color="${el.gradientTo}"/></linearGradient>`,
+  )
+  return `url(#${id})`
+}
+
+/** Pushes a dark-fill CSS rule and returns the class name, or '' if no darkFill. */
+function emitDarkFill(
+  el: { id: string; darkFill?: string },
+  fill: string,
+  styleRules: string[],
+): string {
+  if (!el.darkFill) return ''
+  const cls = `rmk-dk-${el.id}`
+  styleRules.push(`.${cls}{fill:${fill}}@media(prefers-color-scheme:dark){.${cls}{fill:${el.darkFill}}}`)
+  return cls
+}
+
+// ── Main export ────────────────────────────────────────────────────────────────
 
 export function buildSvgString(
   elements: EditorElement[],
@@ -79,12 +99,10 @@ export function buildSvgString(
 
   const defs: string[] = []
   const body: string[] = []
-  // All CSS rules collected here → rendered as a single <style> block
   const styleRules: string[] = []
 
-  // ── Canvas background ───────────────────────────────────────────────────────
-  const lightBg = canvasBg && canvasBg !== 'transparent' ? canvasBg : null
-
+  // ── Canvas background ──────────────────────────────────────────────────────
+  const lightBg = canvasBg !== 'transparent' ? canvasBg : null
   if (opts.darkBg) {
     const lightFill = lightBg ?? 'transparent'
     styleRules.push(
@@ -96,7 +114,7 @@ export function buildSvgString(
     body.push(`  <rect x="${ox}" y="${oy}" width="${w}" height="${h}" fill="${lightBg}"/>`)
   }
 
-  // ── Elements ────────────────────────────────────────────────────────────────
+  // ── Elements ───────────────────────────────────────────────────────────────
   for (const el of visible) {
     const op = el.opacity !== 1 ? ` opacity="${el.opacity}"` : ''
     const rot = el.rotation ?? 0
@@ -105,56 +123,26 @@ export function buildSvgString(
       const cx = el.x + el.width / 2, cy = el.y + el.height / 2
       const st = el.strokeWidth > 0 ? ` stroke="${el.stroke}" stroke-width="${el.strokeWidth}"` : ''
       const rx = el.cornerRadius > 0 ? ` rx="${el.cornerRadius}" ry="${el.cornerRadius}"` : ''
-      let fill = el.fill
-      if (el.gradientFrom && el.gradientTo) {
-        const gradId = `grad-${el.id}`
-        const gc = svgGradientCoords(el.gradientAngle ?? 90)
-        defs.push(
-          `  <linearGradient id="${gradId}" x1="${gc.x1}" y1="${gc.y1}" x2="${gc.x2}" y2="${gc.y2}">` +
-          `<stop offset="0%" stop-color="${el.gradientFrom}"/><stop offset="100%" stop-color="${el.gradientTo}"/></linearGradient>`,
-        )
-        fill = `url(#${gradId})`
-      }
-      if (el.darkFill) {
-        const cls = `rmk-dk-${el.id}`
-        styleRules.push(`.${cls}{fill:${fill}}@media(prefers-color-scheme:dark){.${cls}{fill:${el.darkFill}}}`)
-        body.push(...withRotation(
-          [`<rect class="${cls}" x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}"${rx}${st}${op}/>`],
-          rot, cx, cy,
-        ))
-      } else {
-        body.push(...withRotation(
-          [`<rect x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}"${rx} fill="${fill}"${st}${op}/>`],
-          rot, cx, cy,
-        ))
-      }
+      const fill = resolveGradient(el, defs)
+      const cls = emitDarkFill(el, fill, styleRules)
+      body.push(...withRotation(
+        cls
+          ? [`<rect class="${cls}" x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}"${rx}${st}${op}/>`]
+          : [`<rect x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}"${rx} fill="${fill}"${st}${op}/>`],
+        rot, cx, cy,
+      ))
 
     } else if (el.type === 'circle') {
       const cx = el.x + el.width / 2, cy = el.y + el.height / 2
       const st = el.strokeWidth > 0 ? ` stroke="${el.stroke}" stroke-width="${el.strokeWidth}"` : ''
-      let fill = el.fill
-      if (el.gradientFrom && el.gradientTo) {
-        const gradId = `grad-${el.id}`
-        const gc = svgGradientCoords(el.gradientAngle ?? 90)
-        defs.push(
-          `  <linearGradient id="${gradId}" x1="${gc.x1}" y1="${gc.y1}" x2="${gc.x2}" y2="${gc.y2}">` +
-          `<stop offset="0%" stop-color="${el.gradientFrom}"/><stop offset="100%" stop-color="${el.gradientTo}"/></linearGradient>`,
-        )
-        fill = `url(#${gradId})`
-      }
-      if (el.darkFill) {
-        const cls = `rmk-dk-${el.id}`
-        styleRules.push(`.${cls}{fill:${fill}}@media(prefers-color-scheme:dark){.${cls}{fill:${el.darkFill}}}`)
-        body.push(...withRotation(
-          [`<ellipse class="${cls}" cx="${cx}" cy="${cy}" rx="${el.width / 2}" ry="${el.height / 2}"${st}${op}/>`],
-          rot, cx, cy,
-        ))
-      } else {
-        body.push(...withRotation(
-          [`<ellipse cx="${cx}" cy="${cy}" rx="${el.width / 2}" ry="${el.height / 2}" fill="${fill}"${st}${op}/>`],
-          rot, cx, cy,
-        ))
-      }
+      const fill = resolveGradient(el, defs)
+      const cls = emitDarkFill(el, fill, styleRules)
+      body.push(...withRotation(
+        cls
+          ? [`<ellipse class="${cls}" cx="${cx}" cy="${cy}" rx="${el.width / 2}" ry="${el.height / 2}"${st}${op}/>`]
+          : [`<ellipse cx="${cx}" cy="${cy}" rx="${el.width / 2}" ry="${el.height / 2}" fill="${fill}"${st}${op}/>`],
+        rot, cx, cy,
+      ))
 
     } else if (el.type === 'text') {
       const cx = el.x + el.width / 2, cy = el.y + el.height / 2
@@ -162,7 +150,6 @@ export function buildSvgString(
       const lineHeight = el.fontSize * 1.3
 
       if (opts.rasterizeText) {
-        // ── Text → canvas PNG ─────────────────────────────────────────────────
         const scale = 2
         const totalH = Math.max(el.height, lines.length * lineHeight + el.fontSize * 0.3)
         const canvas = document.createElement('canvas')
@@ -170,7 +157,6 @@ export function buildSvgString(
         canvas.height = Math.ceil(totalH) * scale
         const ctx = canvas.getContext('2d')!
         ctx.scale(scale, scale)
-
         if (el.background) {
           const pad = el.bgPadding ?? 4
           ctx.fillStyle = el.background
@@ -184,55 +170,37 @@ export function buildSvgString(
           }
           ctx.fill()
         }
-
         ctx.font = `${el.fontWeight} ${el.fontSize}px ${el.fontFamily}`
         ctx.fillStyle = el.fill
         ctx.textAlign = el.textAlign as CanvasTextAlign
-        const tx =
-          el.textAlign === 'center' ? el.width / 2 :
-          el.textAlign === 'right'  ? el.width : 0
+        const tx = el.textAlign === 'center' ? el.width / 2 : el.textAlign === 'right' ? el.width : 0
         lines.forEach((line, i) => ctx.fillText(line, tx, el.fontSize + i * lineHeight))
-
-        const dataUrl = canvas.toDataURL('image/png')
         body.push(...withRotation(
-          [`<image href="${dataUrl}" x="${el.x}" y="${el.y}" width="${el.width}" height="${totalH}"${op}/>`],
+          [`<image href="${canvas.toDataURL('image/png')}" x="${el.x}" y="${el.y}" width="${el.width}" height="${totalH}"${op}/>`],
           rot, cx, cy,
         ))
       } else {
-        // ── Standard SVG <text> ───────────────────────────────────────────────
         const anchor = el.textAlign === 'center' ? 'middle' : el.textAlign === 'right' ? 'end' : 'start'
         const tx = el.textAlign === 'center' ? cx : el.textAlign === 'right' ? el.x + el.width : el.x
         const innerLines: string[] = []
-
         if (el.background) {
           const pad = el.bgPadding ?? 4
-          const bgRx = el.bgRadius ?? 4
           const bgH = Math.max(el.height, lines.length * lineHeight)
           innerLines.push(
             `<rect x="${el.x - pad}" y="${el.y - pad}" width="${el.width + pad * 2}" height="${bgH + pad * 2}"` +
-            ` rx="${bgRx}" ry="${bgRx}" fill="${el.background}"${op}/>`,
+            ` rx="${el.bgRadius ?? 4}" ry="${el.bgRadius ?? 4}" fill="${el.background}"${op}/>`,
           )
         }
-
         const tspans = lines.map((line, i) => {
-          const escaped = (line || ' ').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-          return `    <tspan x="${tx}" y="${el.y + el.fontSize + i * lineHeight}">${escaped}</tspan>`
+          const esc = (line || ' ').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          return `    <tspan x="${tx}" y="${el.y + el.fontSize + i * lineHeight}">${esc}</tspan>`
         }).join('\n')
-
-        if (el.darkFill) {
-          const cls = `rmk-dk-${el.id}`
-          styleRules.push(`.${cls}{fill:${el.fill}}@media(prefers-color-scheme:dark){.${cls}{fill:${el.darkFill}}}`)
-          innerLines.push(
-            `<text class="${cls}" font-size="${el.fontSize}" font-weight="${el.fontWeight}"` +
-            ` font-family="${el.fontFamily}" text-anchor="${anchor}"${op}>\n${tspans}\n  </text>`,
-          )
-        } else {
-          innerLines.push(
-            `<text font-size="${el.fontSize}" font-weight="${el.fontWeight}" font-family="${el.fontFamily}"` +
-            ` fill="${el.fill}" text-anchor="${anchor}"${op}>\n${tspans}\n  </text>`,
-          )
-        }
-
+        const cls = emitDarkFill(el, el.fill, styleRules)
+        innerLines.push(
+          cls
+            ? `<text class="${cls}" font-size="${el.fontSize}" font-weight="${el.fontWeight}" font-family="${el.fontFamily}" text-anchor="${anchor}"${op}>\n${tspans}\n  </text>`
+            : `<text font-size="${el.fontSize}" font-weight="${el.fontWeight}" font-family="${el.fontFamily}" fill="${el.fill}" text-anchor="${anchor}"${op}>\n${tspans}\n  </text>`,
+        )
         body.push(...withRotation(innerLines, rot, cx, cy))
       }
 
@@ -248,11 +216,10 @@ export function buildSvgString(
           `<polygon points="0 0, 10 3.5, 0 7" fill="${el.stroke}"/></marker>`,
         )
       }
-      const me = el.arrowEnd  ? ` marker-end="url(#${mid})"` : ''
-      const ms = el.arrowStart ? ` marker-start="url(#${mid})"` : ''
       body.push(
         `  <line x1="${el.x}" y1="${el.y}" x2="${x2}" y2="${y2}"` +
-        ` stroke="${el.stroke}" stroke-width="${el.strokeWidth}" stroke-linecap="round"${da}${me}${ms}${op}/>`,
+        ` stroke="${el.stroke}" stroke-width="${el.strokeWidth}" stroke-linecap="round"${da}` +
+        `${el.arrowEnd ? ` marker-end="url(#${mid})"` : ''}${el.arrowStart ? ` marker-start="url(#${mid})"` : ''}${op}/>`,
       )
 
     } else if (el.type === 'image' && el.src) {
@@ -264,17 +231,16 @@ export function buildSvgString(
     }
   }
 
-  // ── Consolidate <style> block ────────────────────────────────────────────────
-  if (styleRules.length > 0) {
-    defs.unshift(`  <style>${styleRules.join('')}</style>`)
-  }
+  if (styleRules.length > 0) defs.unshift(`  <style>${styleRules.join('')}</style>`)
 
   const defsBlock = defs.length ? `  <defs>\n${defs.join('\n')}\n  </defs>` : ''
-  const parts = [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${ox} ${oy} ${w} ${h}">`,
-    ...(defsBlock ? [defsBlock] : []),
-    ...body,
-    '</svg>',
-  ]
-  return { svg: parts.join('\n'), w, h, ox, oy }
+  return {
+    svg: [
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${ox} ${oy} ${w} ${h}">`,
+      ...(defsBlock ? [defsBlock] : []),
+      ...body,
+      '</svg>',
+    ].join('\n'),
+    w, h, ox, oy,
+  }
 }
