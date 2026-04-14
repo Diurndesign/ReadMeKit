@@ -3,10 +3,10 @@ import { useEditorStore } from '../stores/editorStore'
 import { useUIStore } from '../stores/uiStore'
 import { useDragElement } from '../hooks/useDragElement'
 import { ElementRenderer } from './ElementRenderer'
-import { createRectElement, createTextElement, createCircleElement } from '../types/elements'
+import { createRectElement, createTextElement, createCircleElement, createLineElement, createImageElement } from '../types/elements'
 import type { TextElement } from '../types/elements'
 import { generateId } from '@/utils/generateId'
-import { Square, Type, Circle } from 'lucide-react'
+import { Square, Type, Circle, Minus, Image } from 'lucide-react'
 
 // ─── Inline text editing overlay ────────────────────────────────────────────
 
@@ -100,6 +100,8 @@ function EmptyCanvasHint() {
             { tool: 'rect' as const, icon: <Square size={16} />, label: 'Rectangle', shortcut: 'R' },
             { tool: 'text' as const, icon: <Type size={16} />, label: 'Texte', shortcut: 'T' },
             { tool: 'circle' as const, icon: <Circle size={16} />, label: 'Cercle', shortcut: 'O' },
+            { tool: 'line' as const, icon: <Minus size={16} />, label: 'Ligne', shortcut: 'L' },
+            { tool: 'image' as const, icon: <Image size={16} />, label: 'Image', shortcut: 'I' },
           ].map(({ tool, icon, label, shortcut }) => (
             <button
               key={tool}
@@ -142,7 +144,13 @@ export function EditorCanvas() {
   const setPanOffset = useUIStore((s) => s.setPanOffset)
   const editingId = useUIStore((s) => s.editingId)
   const canvasBg = useUIStore((s) => s.canvasBg)
+  const canvasWidth = useUIStore((s) => s.canvasWidth)
+  const canvasHeight = useUIStore((s) => s.canvasHeight)
   const { handlePointerDown } = useDragElement()
+
+  // Line drawing state
+  const [drawingLine, setDrawingLine] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null)
+  const isDrawingLine = useRef(false)
 
   const svgRef = useRef<SVGSVGElement>(null)
   const spaceHeld = useRef(false)
@@ -238,6 +246,14 @@ export function EditorCanvas() {
     } else if (activeTool === 'circle') {
       addElement(createCircleElement({ id: generateId(), x: Math.round(x - 60), y: Math.round(y - 60) }))
       setActiveTool('select')
+    } else if (activeTool === 'image') {
+      addElement(createImageElement({ id: generateId(), x: Math.round(x - 120), y: Math.round(y - 80) }))
+      setActiveTool('select')
+    } else if (activeTool === 'line') {
+      // Start drawing a line — track drag
+      isDrawingLine.current = true
+      setDrawingLine({ x1: x, y1: y, x2: x, y2: y })
+      ;(e.target as Element).setPointerCapture(e.pointerId)
     } else {
       // Begin marquee selection
       marqueeStart.current = { x, y }
@@ -251,6 +267,12 @@ export function EditorCanvas() {
       const dx = (e.clientX - panStart.current.x) / zoom
       const dy = (e.clientY - panStart.current.y) / zoom
       setPanOffset({ x: panStartOffset.current.x - dx, y: panStartOffset.current.y - dy })
+      return
+    }
+
+    if (isDrawingLine.current && drawingLine) {
+      const { x, y } = screenToCanvas(e.clientX, e.clientY)
+      setDrawingLine((prev) => prev ? { ...prev, x2: x, y2: y } : null)
       return
     }
 
@@ -277,12 +299,32 @@ export function EditorCanvas() {
       return
     }
 
+    if (isDrawingLine.current && drawingLine) {
+      isDrawingLine.current = false
+      const dx = drawingLine.x2 - drawingLine.x1
+      const dy = drawingLine.y2 - drawingLine.y1
+      // Only create if drag was meaningful (> 8px)
+      if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+        addElement(createLineElement({
+          id: generateId(),
+          x: Math.round(drawingLine.x1),
+          y: Math.round(drawingLine.y1),
+          width: Math.round(dx),
+          height: Math.round(dy),
+        }))
+      }
+      setDrawingLine(null)
+      setActiveTool('select')
+      return
+    }
+
     if (marqueeStart.current) {
       if (isDraggingMarquee.current && marquee) {
         const { x, y, w, h } = marquee
-        const hit = elements.filter(
-          (el) => el.x < x + w && el.x + el.width > x && el.y < y + h && el.y + el.height > y
-        )
+        const hit = elements.filter((el) => {
+          const bb = getElementBBox(el)
+          return bb.x < x + w && bb.x + bb.w > x && bb.y < y + h && bb.y + bb.h > y
+        })
         if (e.shiftKey) {
           const current = useEditorStore.getState().selectedIds
           const merged = Array.from(new Set([...current, ...hit.map((el) => el.id)]))
@@ -313,6 +355,18 @@ export function EditorCanvas() {
   }
 
   const cursorStyle = activeTool !== 'select' ? 'crosshair' : 'default'
+  // Marquee hit test — handles lines with negative w/h
+  const getElementBBox = (el: { x: number; y: number; width: number; height: number; type: string }) => {
+    if (el.type === 'line') {
+      return {
+        x: Math.min(el.x, el.x + el.width),
+        y: Math.min(el.y, el.y + el.height),
+        w: Math.abs(el.width) || 1,
+        h: Math.abs(el.height) || 1,
+      }
+    }
+    return { x: el.x, y: el.y, w: el.width, h: el.height }
+  }
   const groupTransform = `scale(${zoom}) translate(${-panOffset.x}, ${-panOffset.y})`
 
   return (
@@ -350,6 +404,29 @@ export function EditorCanvas() {
             <rect x={-10000} y={-10000} width={20000} height={20000} fill={canvasBg} pointerEvents="none" />
           )}
 
+          {/* Canvas frame (when size is set) */}
+          {canvasWidth && canvasHeight && (
+            <>
+              <rect
+                x={0} y={0} width={canvasWidth} height={canvasHeight}
+                fill="none"
+                stroke="#3f3f46"
+                strokeWidth={1 / zoom}
+                strokeDasharray={`${4 / zoom} ${2 / zoom}`}
+                pointerEvents="none"
+              />
+              <text
+                x={0} y={-6 / zoom}
+                fontSize={10 / zoom}
+                fill="#52525b"
+                fontFamily="system-ui, sans-serif"
+                pointerEvents="none"
+              >
+                {canvasWidth} × {canvasHeight}
+              </text>
+            </>
+          )}
+
           {/* Elements */}
           {elements.map((element) => (
             <ElementRenderer
@@ -365,6 +442,16 @@ export function EditorCanvas() {
             <rect
               x={multiBBox.x} y={multiBBox.y} width={multiBBox.w} height={multiBBox.h}
               fill="none" stroke="#6366f1" strokeWidth={1} strokeDasharray="6 3"
+              pointerEvents="none"
+            />
+          )}
+
+          {/* Line drawing preview */}
+          {drawingLine && (
+            <line
+              x1={drawingLine.x1} y1={drawingLine.y1}
+              x2={drawingLine.x2} y2={drawingLine.y2}
+              stroke="#6366f1" strokeWidth={2} strokeDasharray="4 2"
               pointerEvents="none"
             />
           )}

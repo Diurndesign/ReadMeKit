@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Square, Circle, Type, Eye, EyeOff, Lock, LockOpen, Trash2 } from 'lucide-react'
+import { Square, Circle, Type, Eye, EyeOff, Lock, LockOpen, Trash2, Minus, Image } from 'lucide-react'
 import { useEditorStore } from '../stores/editorStore'
 import { cn } from '@/utils/cn'
 import type { EditorElement } from '../types/elements'
@@ -7,13 +7,15 @@ import type { EditorElement } from '../types/elements'
 function typeIcon(type: string) {
   if (type === 'rect') return <Square size={12} />
   if (type === 'circle') return <Circle size={12} />
+  if (type === 'line') return <Minus size={12} />
+  if (type === 'image') return <Image size={12} />
   return <Type size={12} />
 }
 
 function defaultName(el: EditorElement, index: number): string {
   if (el.name) return el.name
-  const label = el.type === 'rect' ? 'Rect' : el.type === 'circle' ? 'Circle' : 'Text'
-  return `${label} ${index + 1}`
+  const labels: Record<string, string> = { rect: 'Rect', circle: 'Circle', text: 'Text', line: 'Line', image: 'Image' }
+  return `${labels[el.type] ?? el.type} ${index + 1}`
 }
 
 export function LayerPanel() {

@@ -1,13 +1,13 @@
 import {
   Copy, ChevronUp, ChevronDown, X, AlignLeft, AlignCenter, AlignRight,
-  Trash2, Square, Circle, Type, Move,
+  Trash2, Square, Circle, Type, Move, Minus, Image,
   AlignStartVertical, AlignCenterVertical, AlignEndVertical,
   AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround,
 } from 'lucide-react'
 import { useEditorStore } from '../stores/editorStore'
 import { useUIStore } from '../stores/uiStore'
-import type { EditorElement, RectElement, TextElement, CircleElement } from '../types/elements'
+import type { EditorElement, RectElement, TextElement, CircleElement, LineElement, ImageElement } from '../types/elements'
 import { cn } from '@/utils/cn'
 
 // ─── Base input components ────────────────────────────────────────────────────
@@ -187,10 +187,78 @@ function TextProperties({ element, onUpdate }: { element: TextElement; onUpdate:
 
 // ─── Type icon ────────────────────────────────────────────────────────────────
 
+function LineProperties({ element, onUpdate }: { element: LineElement; onUpdate: (u: Partial<LineElement>) => void }) {
+  return (
+    <>
+      <SectionLabel>Trait</SectionLabel>
+      <ColorInput label="Coul." value={element.stroke} onChange={(v) => onUpdate({ stroke: v })} />
+      <div className="mt-1.5">
+        <PropertyInput label="Ép." value={element.strokeWidth} type="number" onChange={(v) => onUpdate({ strokeWidth: Math.max(1, Number(v)) })} />
+      </div>
+      <SectionLabel>Style</SectionLabel>
+      <div className="flex gap-1">
+        {(['solid', 'dashed', 'dotted'] as const).map((d) => (
+          <button
+            key={d}
+            onClick={() => onUpdate({ strokeDash: d })}
+            className={cn(
+              'flex-1 h-7 text-[10px] rounded border transition-colors',
+              element.strokeDash === d
+                ? 'bg-[#6366f1] border-[#6366f1] text-white'
+                : 'bg-[#0f0f11] border-[#2e2e33] text-[#71717a] hover:border-[#6366f1] hover:text-white',
+            )}
+          >
+            {d === 'solid' ? '—' : d === 'dashed' ? '- -' : '···'}
+          </button>
+        ))}
+      </div>
+      <SectionLabel>Flèches</SectionLabel>
+      <div className="flex gap-1">
+        <button
+          onClick={() => onUpdate({ arrowStart: !element.arrowStart })}
+          className={cn(
+            'flex-1 h-7 text-[10px] rounded border transition-colors',
+            element.arrowStart ? 'bg-[#6366f1] border-[#6366f1] text-white' : 'bg-[#0f0f11] border-[#2e2e33] text-[#71717a] hover:border-[#6366f1]',
+          )}
+        >← Début</button>
+        <button
+          onClick={() => onUpdate({ arrowEnd: !element.arrowEnd })}
+          className={cn(
+            'flex-1 h-7 text-[10px] rounded border transition-colors',
+            element.arrowEnd ? 'bg-[#6366f1] border-[#6366f1] text-white' : 'bg-[#0f0f11] border-[#2e2e33] text-[#71717a] hover:border-[#6366f1]',
+          )}
+        >Fin →</button>
+      </div>
+    </>
+  )
+}
+
+function ImageProperties({ element, onUpdate }: { element: ImageElement; onUpdate: (u: Partial<ImageElement>) => void }) {
+  return (
+    <>
+      <SectionLabel>URL de l'image</SectionLabel>
+      <div className="flex items-center gap-2">
+        <input
+          type="url"
+          value={element.src}
+          onChange={(e) => onUpdate({ src: e.target.value })}
+          placeholder="https://..."
+          className="flex-1 h-7 px-2 text-xs bg-[#0f0f11] border border-[#2e2e33] rounded text-[#e4e4e7] focus:outline-none focus:border-[#6366f1] transition-colors font-mono"
+        />
+      </div>
+      <p className="text-[10px] text-[#3f3f46] mt-1 leading-relaxed">
+        URL directe vers une image (.png, .jpg, .svg…)
+      </p>
+    </>
+  )
+}
+
 function TypeIcon({ type }: { type: string }) {
   if (type === 'rect') return <Square size={12} />
   if (type === 'circle') return <Circle size={12} />
   if (type === 'text') return <Type size={12} />
+  if (type === 'line') return <Minus size={12} />
+  if (type === 'image') return <Image size={12} />
   return <Move size={12} />
 }
 
@@ -365,7 +433,7 @@ export function PropertyPanel() {
   if (!selectedElement) return null
 
   const handleUpdate = (updates: Partial<EditorElement>) => updateElement(selectedElement.id, updates)
-  const TYPE_LABELS: Record<string, string> = { rect: 'Rectangle', text: 'Texte', circle: 'Cercle' }
+  const TYPE_LABELS: Record<string, string> = { rect: 'Rectangle', text: 'Texte', circle: 'Cercle', line: 'Ligne', image: 'Image' }
 
   return (
     <div data-onboarding="panel" className="w-60 border-l border-[#2e2e33] bg-[#18181b] overflow-y-auto">
@@ -419,6 +487,12 @@ export function PropertyPanel() {
         )}
         {selectedElement.type === 'text' && (
           <TextProperties element={selectedElement} onUpdate={handleUpdate} />
+        )}
+        {selectedElement.type === 'line' && (
+          <LineProperties element={selectedElement} onUpdate={handleUpdate} />
+        )}
+        {selectedElement.type === 'image' && (
+          <ImageProperties element={selectedElement} onUpdate={handleUpdate} />
         )}
 
         <Divider />

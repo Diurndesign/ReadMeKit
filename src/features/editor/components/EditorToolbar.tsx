@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   MousePointer2, Square, Type, Circle, Undo2, Redo2, Grid3X3,
-  ZoomIn, ZoomOut, Maximize2, Download, LayoutTemplate, Image, FileCode, ChevronDown, Clipboard, Check,
+  ZoomIn, ZoomOut, Maximize2, Download, LayoutTemplate, Image, FileCode,
+  ChevronDown, Clipboard, Check, Minus, RectangleHorizontal,
 } from 'lucide-react'
 import { useEditorStore } from '../stores/editorStore'
 import { useUIStore, type ActiveTool } from '../stores/uiStore'
@@ -12,42 +13,80 @@ import type { EditorElement } from '../types/elements'
 
 const PAD = 20
 
-function buildSvgString(elements: EditorElement[], canvasBg = 'transparent'): { svg: string; w: number; h: number; ox: number; oy: number } | null {
+function buildSvgString(
+  elements: EditorElement[],
+  canvasBg = 'transparent',
+  canvasWidth: number | null = null,
+  canvasHeight: number | null = null,
+): { svg: string; w: number; h: number; ox: number; oy: number } | null {
   const visible = elements.filter((e) => e.visible !== false)
   if (visible.length === 0) return null
 
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-  for (const el of visible) {
-    minX = Math.min(minX, el.x); minY = Math.min(minY, el.y)
-    maxX = Math.max(maxX, el.x + el.width); maxY = Math.max(maxY, el.y + el.height)
-  }
-  const w = maxX - minX + PAD * 2
-  const h = maxY - minY + PAD * 2
-  const ox = minX - PAD
-  const oy = minY - PAD
+  let w: number, h: number, ox: number, oy: number
 
-  const parts: string[] = [`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${ox} ${oy} ${w} ${h}">`]
-  if (canvasBg && canvasBg !== 'transparent') {
-    parts.push(`  <rect x="${ox}" y="${oy}" width="${w}" height="${h}" fill="${canvasBg}"/>`)
+  if (canvasWidth && canvasHeight) {
+    w = canvasWidth; h = canvasHeight; ox = 0; oy = 0
+  } else {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const el of visible) {
+      if (el.type === 'line') {
+        const x2 = el.x + el.width, y2 = el.y + el.height
+        minX = Math.min(minX, el.x, x2); minY = Math.min(minY, el.y, y2)
+        maxX = Math.max(maxX, el.x, x2); maxY = Math.max(maxY, el.y, y2)
+      } else {
+        minX = Math.min(minX, el.x); minY = Math.min(minY, el.y)
+        maxX = Math.max(maxX, el.x + el.width); maxY = Math.max(maxY, el.y + el.height)
+      }
+    }
+    w = maxX - minX + PAD * 2; h = maxY - minY + PAD * 2
+    ox = minX - PAD; oy = minY - PAD
   }
+
+  const defs: string[] = []
+  const body: string[] = []
+
+  if (canvasBg && canvasBg !== 'transparent') {
+    body.push(`  <rect x="${ox}" y="${oy}" width="${w}" height="${h}" fill="${canvasBg}"/>`)
+  }
+
   for (const el of visible) {
     const op = el.opacity !== 1 ? ` opacity="${el.opacity}"` : ''
     if (el.type === 'rect') {
       const st = el.strokeWidth > 0 ? ` stroke="${el.stroke}" stroke-width="${el.strokeWidth}"` : ''
       const rx = el.cornerRadius > 0 ? ` rx="${el.cornerRadius}" ry="${el.cornerRadius}"` : ''
-      parts.push(`  <rect x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}"${rx} fill="${el.fill}"${st}${op}/>`)
+      body.push(`  <rect x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}"${rx} fill="${el.fill}"${st}${op}/>`)
     } else if (el.type === 'circle') {
       const cx = el.x + el.width / 2; const cy = el.y + el.height / 2
       const st = el.strokeWidth > 0 ? ` stroke="${el.stroke}" stroke-width="${el.strokeWidth}"` : ''
-      parts.push(`  <ellipse cx="${cx}" cy="${cy}" rx="${el.width / 2}" ry="${el.height / 2}" fill="${el.fill}"${st}${op}/>`)
+      body.push(`  <ellipse cx="${cx}" cy="${cy}" rx="${el.width / 2}" ry="${el.height / 2}" fill="${el.fill}"${st}${op}/>`)
     } else if (el.type === 'text') {
       const anchor = el.textAlign === 'center' ? 'middle' : el.textAlign === 'right' ? 'end' : 'start'
       const tx = el.textAlign === 'center' ? el.x + el.width / 2 : el.textAlign === 'right' ? el.x + el.width : el.x
       const escaped = el.content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      parts.push(`  <text x="${tx}" y="${el.y + el.fontSize}" font-size="${el.fontSize}" font-weight="${el.fontWeight}" font-family="${el.fontFamily}" fill="${el.fill}" text-anchor="${anchor}"${op}>${escaped}</text>`)
+      body.push(`  <text x="${tx}" y="${el.y + el.fontSize}" font-size="${el.fontSize}" font-weight="${el.fontWeight}" font-family="${el.fontFamily}" fill="${el.fill}" text-anchor="${anchor}"${op}>${escaped}</text>`)
+    } else if (el.type === 'line') {
+      const x2 = el.x + el.width, y2 = el.y + el.height
+      const da = el.strokeDash === 'dashed' ? ` stroke-dasharray="${el.strokeWidth * 4} ${el.strokeWidth * 2}"`
+        : el.strokeDash === 'dotted' ? ` stroke-dasharray="${el.strokeWidth} ${el.strokeWidth * 2}"` : ''
+      const mid = `arrow-${el.id}`
+      if (el.arrowEnd || el.arrowStart) {
+        defs.push(`  <marker id="${mid}" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="${el.stroke}"/></marker>`)
+      }
+      const me = el.arrowEnd ? ` marker-end="url(#${mid})"` : ''
+      const ms = el.arrowStart ? ` marker-start="url(#${mid})"` : ''
+      body.push(`  <line x1="${el.x}" y1="${el.y}" x2="${x2}" y2="${y2}" stroke="${el.stroke}" stroke-width="${el.strokeWidth}" stroke-linecap="round"${da}${me}${ms}${op}/>`)
+    } else if (el.type === 'image' && el.src) {
+      body.push(`  <image href="${el.src}" x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}" preserveAspectRatio="xMidYMid meet"${op}/>`)
     }
   }
-  parts.push('</svg>')
+
+  const defsBlock = defs.length ? `  <defs>\n${defs.join('\n')}\n  </defs>` : ''
+  const parts = [
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${ox} ${oy} ${w} ${h}">`,
+    ...(defsBlock ? [defsBlock] : []),
+    ...body,
+    '</svg>',
+  ]
   return { svg: parts.join('\n'), w, h, ox, oy }
 }
 
@@ -59,8 +98,10 @@ function download(url: string, filename: string) {
 function useExportSVG() {
   const elements = useEditorStore((s) => s.elements)
   const canvasBg = useUIStore((s) => s.canvasBg)
+  const canvasWidth = useUIStore((s) => s.canvasWidth)
+  const canvasHeight = useUIStore((s) => s.canvasHeight)
   return () => {
-    const result = buildSvgString(elements, canvasBg)
+    const result = buildSvgString(elements, canvasBg, canvasWidth, canvasHeight)
     if (!result) return
     const blob = new Blob([result.svg], { type: 'image/svg+xml' })
     const url = URL.createObjectURL(blob)
@@ -72,8 +113,10 @@ function useExportSVG() {
 function useExportPNG() {
   const elements = useEditorStore((s) => s.elements)
   const canvasBg = useUIStore((s) => s.canvasBg)
+  const canvasWidth = useUIStore((s) => s.canvasWidth)
+  const canvasHeight = useUIStore((s) => s.canvasHeight)
   return (scale = 2) => {
-    const result = buildSvgString(elements, canvasBg)
+    const result = buildSvgString(elements, canvasBg, canvasWidth, canvasHeight)
     if (!result) return
     const { svg, w, h } = result
     const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
@@ -142,6 +185,8 @@ function ExportMenu({ disabled }: { disabled: boolean }) {
   const exportPNG = useExportPNG()
   const elements = useEditorStore((s) => s.elements)
   const canvasBg = useUIStore((s) => s.canvasBg)
+  const canvasWidth = useUIStore((s) => s.canvasWidth)
+  const canvasHeight = useUIStore((s) => s.canvasHeight)
 
   useEffect(() => {
     if (!open) return
@@ -153,7 +198,7 @@ function ExportMenu({ disabled }: { disabled: boolean }) {
   }, [open])
 
   const handleCopySVG = async () => {
-    const result = buildSvgString(elements, canvasBg)
+    const result = buildSvgString(elements, canvasBg, canvasWidth, canvasHeight)
     if (!result) return
     try {
       await navigator.clipboard.writeText(result.svg)
@@ -243,7 +288,18 @@ export function EditorToolbar() {
   const setZoom = useUIStore((s) => s.setZoom)
   const resetView = useUIStore((s) => s.resetView)
   const setShowTemplates = useUIStore((s) => s.setShowTemplates)
+  const setCanvasSize = useUIStore((s) => s.setCanvasSize)
+  const canvasWidth = useUIStore((s) => s.canvasWidth)
+  const canvasHeight = useUIStore((s) => s.canvasHeight)
   const elements = useEditorStore((s) => s.elements)
+
+  const CANVAS_PRESETS = [
+    { label: 'Auto', w: null, h: null },
+    { label: 'GitHub Banner — 800×200', w: 800, h: 200 },
+    { label: 'Large Banner — 1200×300', w: 1200, h: 300 },
+    { label: 'Social Card — 1200×630', w: 1200, h: 630 },
+    { label: 'Square — 500×500', w: 500, h: 500 },
+  ] as const
 
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
@@ -261,6 +317,8 @@ export function EditorToolbar() {
     { tool: 'rect', icon: <Square size={18} />, label: 'Rectangle', shortcut: 'R' },
     { tool: 'text', icon: <Type size={18} />, label: 'Texte', shortcut: 'T' },
     { tool: 'circle', icon: <Circle size={18} />, label: 'Cercle', shortcut: 'O' },
+    { tool: 'line', icon: <Minus size={18} />, label: 'Ligne / Flèche', shortcut: 'L' },
+    { tool: 'image', icon: <Image size={18} />, label: 'Image URL', shortcut: 'I' },
   ]
 
   const hasVisible = elements.some((e) => e.visible !== false)
@@ -307,6 +365,37 @@ export function EditorToolbar() {
       <ToolButton icon={<Maximize2 size={18} />} label="Reset vue" shortcut="Ctrl+0" onClick={resetView} />
 
       <Sep />
+
+      {/* Canvas size preset */}
+      <div className="relative group">
+        <button
+          className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-sm font-medium text-[#a1a1aa] hover:text-white hover:bg-[#27272a] transition-colors"
+          title="Taille du canvas"
+        >
+          <RectangleHorizontal size={15} />
+          {canvasWidth && canvasHeight ? `${canvasWidth}×${canvasHeight}` : 'Auto'}
+          <ChevronDown size={12} />
+        </button>
+        <div
+          className="absolute top-full left-0 mt-1.5 w-52 rounded-xl overflow-hidden z-50 hidden group-hover:block"
+          style={{ background: '#1c1c20', border: '1px solid #3f3f46', boxShadow: '0 16px 40px rgba(0,0,0,0.5)' }}
+        >
+          {CANVAS_PRESETS.map((p) => (
+            <button
+              key={p.label}
+              className={cn(
+                'w-full flex items-center px-4 py-2 text-xs transition-colors text-left',
+                canvasWidth === p.w && canvasHeight === p.h
+                  ? 'text-[#818cf8] bg-[#27272a]'
+                  : 'text-[#a1a1aa] hover:bg-[#27272a] hover:text-white',
+              )}
+              onClick={() => setCanvasSize(p.w ?? null, p.h ?? null)}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Templates */}
       <button
