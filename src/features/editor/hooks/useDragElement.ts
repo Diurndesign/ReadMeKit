@@ -16,6 +16,7 @@ export function useDragElement() {
   const startPositions = useRef<{ id: string; x: number; y: number }[]>([])
 
   const selectElement = useEditorStore((s) => s.selectElement)
+  const selectElements = useEditorStore((s) => s.selectElements)
   const batchMoveElements = useEditorStore((s) => s.batchMoveElements)
   const zoom = useUIStore((s) => s.zoom)
   const showGrid = useUIStore((s) => s.showGrid)
@@ -40,10 +41,14 @@ export function useDragElement() {
         return
       }
 
-      const isInMultiSelection = selectedIds.includes(elementId) && selectedIds.length > 1
-
-      if (isInMultiSelection) {
-        startPositions.current = selectedIds
+      // Group-aware selection: clicking any group member selects the whole group
+      if (el?.groupId) {
+        const groupMemberIds = elements
+          .filter((e) => e.groupId === el.groupId)
+          .map((e) => e.id)
+        const allSelected = groupMemberIds.every((id) => selectedIds.includes(id))
+        if (!allSelected) selectElements(groupMemberIds)
+        startPositions.current = groupMemberIds
           .filter((id) => {
             const found = elements.find((e) => e.id === id)
             return found && !found.locked
@@ -52,15 +57,32 @@ export function useDragElement() {
             const found = elements.find((e) => e.id === id)!
             return { id, x: found.x, y: found.y }
           })
+        isDragging.current = true
+        startPos.current = { x: e.clientX, y: e.clientY }
+        useEditorStore.temporal.getState().pause()
+        // Re-use the existing pointermove/pointerup logic below
       } else {
-        selectElement(elementId)
-        startPositions.current = [{ id: elementId, x: elementX, y: elementY }]
+        const isInMultiSelection = selectedIds.includes(elementId) && selectedIds.length > 1
+
+        if (isInMultiSelection) {
+          startPositions.current = selectedIds
+            .filter((id) => {
+              const found = elements.find((e) => e.id === id)
+              return found && !found.locked
+            })
+            .map((id) => {
+              const found = elements.find((e) => e.id === id)!
+              return { id, x: found.x, y: found.y }
+            })
+        } else {
+          selectElement(elementId)
+          startPositions.current = [{ id: elementId, x: elementX, y: elementY }]
+        }
+
+        isDragging.current = true
+        startPos.current = { x: e.clientX, y: e.clientY }
+        useEditorStore.temporal.getState().pause()
       }
-
-      isDragging.current = true
-      startPos.current = { x: e.clientX, y: e.clientY }
-
-      useEditorStore.temporal.getState().pause()
 
       const handlePointerMove = (ev: PointerEvent) => {
         if (!isDragging.current) return
@@ -151,7 +173,7 @@ export function useDragElement() {
       window.addEventListener('pointermove', handlePointerMove)
       window.addEventListener('pointerup', handlePointerUp)
     },
-    [selectElement, batchMoveElements, zoom, showGrid]
+    [selectElement, selectElements, batchMoveElements, zoom, showGrid]
   )
 
   return { handlePointerDown }

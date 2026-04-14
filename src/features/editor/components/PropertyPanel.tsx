@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   Copy, ChevronUp, ChevronDown, X, AlignLeft, AlignCenter, AlignRight,
-  Trash2, Square, Circle, Type, Move, Minus, Image,
+  Trash2, Square, Circle, Type, Move, Minus, Image, Moon,
   AlignStartVertical, AlignCenterVertical, AlignEndVertical,
   AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround,
+  Group, Ungroup,
 } from 'lucide-react'
 import { useEditorStore } from '../stores/editorStore'
 import { useUIStore } from '../stores/uiStore'
@@ -62,26 +63,49 @@ function PropertyInput({
   )
 }
 
+const COLOR_SWATCHES = [
+  '#6366f1', '#818cf8', '#ec4899', '#f43f5e',
+  '#22c55e', '#3b82f6', '#f59e0b', '#a78bfa',
+  '#e4e4e7', '#71717a', '#18181b', '#ffffff',
+]
+
 function ColorInput({
   label, value, onChange,
 }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
-    <div className="flex items-center gap-2">
-      <label className="text-xs text-[#71717a] w-8 shrink-0 text-right">{label}</label>
-      <div className="flex items-center gap-1.5 flex-1 h-7 px-1.5 bg-[#0f0f11] border border-[#2e2e33] rounded focus-within:border-[#6366f1] transition-colors">
-        <input
-          type="color"
-          value={value.startsWith('#') ? value : '#000000'}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-5 h-5 rounded-sm cursor-pointer border-0 bg-transparent shrink-0 p-0"
-          style={{ padding: 0 }}
-        />
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="flex-1 text-xs bg-transparent text-[#e4e4e7] focus:outline-none font-mono min-w-0"
-        />
+    <div>
+      <div className="flex items-center gap-2">
+        <label className="text-xs text-[#71717a] w-8 shrink-0 text-right">{label}</label>
+        <div className="flex items-center gap-1.5 flex-1 h-7 px-1.5 bg-[#0f0f11] border border-[#2e2e33] rounded focus-within:border-[#6366f1] transition-colors">
+          <input
+            type="color"
+            value={value.startsWith('#') ? value : '#000000'}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-5 h-5 rounded-sm cursor-pointer border-0 bg-transparent shrink-0 p-0"
+            style={{ padding: 0 }}
+          />
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={(e) => e.stopPropagation()}
+            className="flex-1 text-xs bg-transparent text-[#e4e4e7] focus:outline-none font-mono min-w-0"
+          />
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-1 mt-1.5 pl-10">
+        {COLOR_SWATCHES.map((c) => (
+          <button
+            key={c}
+            title={c}
+            onClick={() => onChange(c)}
+            style={{ background: c }}
+            className={cn(
+              'w-4 h-4 rounded-sm border transition-all',
+              value === c ? 'border-white scale-110' : 'border-[#3f3f46] hover:border-white hover:scale-110',
+            )}
+          />
+        ))}
       </div>
     </div>
   )
@@ -92,6 +116,44 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
     <p className="text-[10px] font-semibold text-[#52525b] uppercase tracking-widest mt-3 mb-1.5 first:mt-0">
       {children}
     </p>
+  )
+}
+
+/** Dark-mode fill override — shown below any fill ColorInput */
+function DarkFillRow({
+  value,
+  onChange,
+}: {
+  value: string | undefined
+  onChange: (v: string | undefined) => void
+}) {
+  return (
+    <div className="mt-1.5">
+      {value === undefined ? (
+        <button
+          onClick={() => onChange('#ffffff')}
+          className="flex items-center gap-1.5 text-[11px] text-[#52525b] hover:text-[#818cf8] transition-colors"
+        >
+          <Moon size={11} />
+          <span>+ Couleur sombre</span>
+        </button>
+      ) : (
+        <>
+          <div className="flex items-center gap-1 mb-1">
+            <Moon size={11} className="text-[#818cf8] shrink-0" />
+            <span className="text-[10px] text-[#818cf8] font-medium">Mode sombre</span>
+            <button
+              onClick={() => onChange(undefined)}
+              className="ml-auto text-[#52525b] hover:text-[#f87171] transition-colors"
+              title="Supprimer la couleur sombre"
+            >
+              <X size={11} />
+            </button>
+          </div>
+          <ColorInput label="🌙" value={value} onChange={onChange} />
+        </>
+      )}
+    </div>
   )
 }
 
@@ -113,6 +175,24 @@ function CommonProperties({ element, onUpdate }: { element: EditorElement; onUpd
       <div className="grid grid-cols-2 gap-1.5">
         <PropertyInput label="W" value={Math.round(element.width)} type="number" onChange={(v) => onUpdate({ width: Math.max(10, Number(v)) })} />
         <PropertyInput label="H" value={Math.round(element.height)} type="number" onChange={(v) => onUpdate({ height: Math.max(10, Number(v)) })} />
+      </div>
+      <SectionLabel>Rotation</SectionLabel>
+      <div className="flex items-center gap-2">
+        <input
+          type="range" min="0" max="359" step="1"
+          value={element.rotation ?? 0}
+          onChange={(e) => onUpdate({ rotation: Number(e.target.value) })}
+          className="flex-1 accent-[#6366f1] h-1"
+        />
+        <PropertyInput
+          label="°"
+          value={element.rotation ?? 0}
+          type="number"
+          onChange={(v) => {
+            const deg = ((Number(v) % 360) + 360) % 360
+            onUpdate({ rotation: Math.round(deg) })
+          }}
+        />
       </div>
       <SectionLabel>Opacité</SectionLabel>
       <div className="flex items-center gap-2">
@@ -191,6 +271,7 @@ function RectProperties({ element, onUpdate }: { element: RectElement; onUpdate:
           </div>
         </>
       )}
+      <DarkFillRow value={element.darkFill} onChange={(v) => onUpdate({ darkFill: v })} />
       <SectionLabel>Bordure</SectionLabel>
       <ColorInput label="Coul." value={element.stroke === 'transparent' ? '#000000' : element.stroke} onChange={(v) => onUpdate({ stroke: v })} />
       <div className="grid grid-cols-2 gap-1.5 mt-1.5">
@@ -242,6 +323,7 @@ function CircleProperties({ element, onUpdate }: { element: CircleElement; onUpd
           </div>
         </>
       )}
+      <DarkFillRow value={element.darkFill} onChange={(v) => onUpdate({ darkFill: v })} />
       <SectionLabel>Bordure</SectionLabel>
       <ColorInput label="Coul." value={element.stroke === 'transparent' ? '#000000' : element.stroke} onChange={(v) => onUpdate({ stroke: v })} />
       <div className="mt-1.5">
@@ -297,6 +379,20 @@ function TextProperties({ element, onUpdate }: { element: TextElement; onUpdate:
         </div>
       </div>
       <div className="flex items-center gap-2 mt-1.5">
+        <label className="text-xs text-[#71717a] w-8 shrink-0 text-right">Font</label>
+        <select
+          value={element.fontFamily}
+          onChange={(e) => onUpdate({ fontFamily: e.target.value })}
+          className="flex-1 h-7 px-1.5 text-xs bg-[#0f0f11] border border-[#2e2e33] rounded text-[#e4e4e7] focus:outline-none focus:border-[#6366f1]"
+        >
+          <option value='-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif'>System UI</option>
+          <option value='"Consolas", "Cascadia Code", "Courier New", monospace'>Monospace</option>
+          <option value='"Georgia", "Times New Roman", serif'>Serif</option>
+          <option value='Impact, "Arial Black", sans-serif'>Impact</option>
+          <option value='"Arial", "Helvetica Neue", sans-serif'>Arial</option>
+        </select>
+      </div>
+      <div className="flex items-center gap-2 mt-1.5">
         <label className="text-xs text-[#71717a] w-8 shrink-0 text-right">Align</label>
         <div className="flex gap-1">
           {([
@@ -322,6 +418,7 @@ function TextProperties({ element, onUpdate }: { element: TextElement; onUpdate:
       </div>
       <SectionLabel>Couleur</SectionLabel>
       <ColorInput label="Fill" value={element.fill} onChange={(v) => onUpdate({ fill: v })} />
+      <DarkFillRow value={element.darkFill} onChange={(v) => onUpdate({ darkFill: v })} />
       <SectionLabel>Fond du texte</SectionLabel>
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-xs text-[#71717a]">Activer</span>
@@ -482,6 +579,8 @@ export function PropertyPanel() {
   const sendBackward = useEditorStore((s) => s.sendBackward)
   const alignElements = useEditorStore((s) => s.alignElements)
   const distributeElements = useEditorStore((s) => s.distributeElements)
+  const groupSelected = useEditorStore((s) => s.groupSelected)
+  const ungroupSelected = useEditorStore((s) => s.ungroupSelected)
 
   const primaryId = selectedIds[selectedIds.length - 1] ?? null
   const selectedElement = elements.find((e) => e.id === primaryId)
@@ -584,6 +683,27 @@ export function PropertyPanel() {
           )}
 
           <Divider />
+
+          {/* Group / Ungroup */}
+          {(() => {
+            const allGrouped = selectedIds.length >= 2 &&
+              (() => {
+                const gid = elements.find((e) => e.id === selectedIds[0])?.groupId
+                return !!gid && selectedIds.every((id) => {
+                  const el = elements.find((e) => e.id === id)
+                  return el?.groupId === gid
+                })
+              })()
+            return (
+              <button
+                onClick={allGrouped ? ungroupSelected : groupSelected}
+                className="w-full h-8 text-xs rounded-lg bg-[#27272a] text-[#a1a1aa] hover:bg-[#3f3f46] hover:text-white transition-colors flex items-center justify-center gap-2 mb-2"
+              >
+                {allGrouped ? <Ungroup size={13} /> : <Group size={13} />}
+                {allGrouped ? 'Dégrouper' : 'Grouper'} ({selectedIds.length})
+              </button>
+            )
+          })()}
 
           <button
             onClick={deleteSelected}

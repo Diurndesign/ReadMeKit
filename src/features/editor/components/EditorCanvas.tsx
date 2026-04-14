@@ -50,6 +50,7 @@ function TextEditingOverlay({ element, svgRef, zoom, panOffset }: TextOverlayPro
   return (
     <textarea
       ref={ref}
+      autoFocus
       value={value}
       onChange={(e) => { setValue(e.target.value); autoResize() }}
       onBlur={commit}
@@ -320,7 +321,6 @@ export function EditorCanvas() {
       isDrawingLine.current = false
       const dx = drawingLine.x2 - drawingLine.x1
       const dy = drawingLine.y2 - drawingLine.y1
-      // Only create if drag was meaningful (> 8px)
       if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
         addElement(createLineElement({
           id: generateId(),
@@ -328,6 +328,15 @@ export function EditorCanvas() {
           y: Math.round(drawingLine.y1),
           width: Math.round(dx),
           height: Math.round(dy),
+        }))
+      } else {
+        // Plain click → create a default 200px horizontal line centered on click
+        addElement(createLineElement({
+          id: generateId(),
+          x: Math.round(drawingLine.x1 - 100),
+          y: Math.round(drawingLine.y1),
+          width: 200,
+          height: 0,
         }))
       }
       setDrawingLine(null)

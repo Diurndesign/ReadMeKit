@@ -23,6 +23,7 @@ interface EditorState {
   sendBackward: (id: string) => void
   bringToFront: (id: string) => void
   sendToBack: (id: string) => void
+  reorderElement: (id: string, toIndex: number) => void
   duplicateElement: (id: string) => void
   toggleElementVisibility: (id: string) => void
   toggleElementLock: (id: string) => void
@@ -31,6 +32,8 @@ interface EditorState {
   distributeElements: (ids: string[], axis: 'h' | 'v') => void
   copySelected: () => void
   paste: () => void
+  groupSelected: () => void
+  ungroupSelected: () => void
 }
 
 export const useEditorStore = create<EditorState>()(
@@ -144,6 +147,14 @@ export const useEditorStore = create<EditorState>()(
           state.elements.unshift(el)
         }),
 
+      reorderElement: (id, toIndex) =>
+        set((state) => {
+          const idx = state.elements.findIndex((e) => e.id === id)
+          if (idx < 0) return
+          const [el] = state.elements.splice(idx, 1)
+          state.elements.splice(Math.max(0, Math.min(toIndex, state.elements.length)), 0, el)
+        }),
+
       duplicateElement: (id) =>
         set((state) => {
           const el = state.elements.find((e) => e.id === id)
@@ -226,14 +237,44 @@ export const useEditorStore = create<EditorState>()(
       paste: () =>
         set((state) => {
           if (state.clipboard.length === 0) return
-          const newEls = state.clipboard.map((el) => ({
-            ...el,
-            id: generateId(),
-            x: el.x + 20,
-            y: el.y + 20,
-          }))
+          // Remap groupIds so pasted groups get fresh group identities
+          const groupIdMap = new Map<string, string>()
+          const newEls = state.clipboard.map((el) => {
+            let newGroupId: string | undefined
+            if (el.groupId) {
+              if (!groupIdMap.has(el.groupId)) groupIdMap.set(el.groupId, generateId())
+              newGroupId = groupIdMap.get(el.groupId)
+            }
+            return { ...el, id: generateId(), x: el.x + 20, y: el.y + 20, groupId: newGroupId }
+          })
           state.elements.push(...newEls)
           state.selectedIds = newEls.map((e) => e.id)
+        }),
+
+      groupSelected: () =>
+        set((state) => {
+          if (state.selectedIds.length < 2) return
+          const groupId = generateId()
+          for (const el of state.elements) {
+            if (state.selectedIds.includes(el.id)) el.groupId = groupId
+          }
+        }),
+
+      ungroupSelected: () =>
+        set((state) => {
+          // Collect all groupIds referenced by the selection
+          const groupIds = new Set(
+            state.elements
+              .filter((el) => state.selectedIds.includes(el.id) && el.groupId)
+              .map((el) => el.groupId!),
+          )
+          if (groupIds.size === 0) return
+          // Remove groupId from every element in those groups
+          for (const el of state.elements) {
+            if (el.groupId && groupIds.has(el.groupId)) {
+              el.groupId = undefined
+            }
+          }
         }),
     })),
     { limit: 50, partialize: (state) => ({ elements: state.elements }) }

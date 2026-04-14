@@ -1,4 +1,5 @@
 import { useResizeElement, CURSOR_MAP, type ResizeHandle } from '../../hooks/useResizeElement'
+import { useRotateElement } from '../../hooks/useRotateElement'
 import { useUIStore } from '../../stores/uiStore'
 import { wrapText } from '@/utils/wrapText'
 import type { TextElement as TextElementType } from '../../types/elements'
@@ -11,13 +12,17 @@ interface Props {
 
 export function TextElementSVG({ element, isSelected, onPointerDown }: Props) {
   const { handleResizeStart } = useResizeElement()
+  const { handleRotateStart } = useRotateElement()
   const setEditingId = useUIStore((s) => s.setEditingId)
   const { x, y, width: w, height: h } = element
+  const cx = x + w / 2
+  const cy = y + h / 2
+  const rotation = element.rotation ?? 0
 
   const textAnchor =
     element.textAlign === 'center' ? 'middle' : element.textAlign === 'right' ? 'end' : 'start'
   const textX =
-    element.textAlign === 'center' ? x + w / 2 : element.textAlign === 'right' ? x + w : x
+    element.textAlign === 'center' ? cx : element.textAlign === 'right' ? x + w : x
 
   const pad = element.bgPadding ?? 4
   const bgRadius = element.bgRadius ?? 4
@@ -31,12 +36,13 @@ export function TextElementSVG({ element, isSelected, onPointerDown }: Props) {
     { handle: 'ne', hx: x + w, hy: y },
     { handle: 'se', hx: x + w, hy: y + h },
     { handle: 'sw', hx: x, hy: y + h },
-    { handle: 'e', hx: x + w, hy: y + h / 2 },
-    { handle: 'w', hx: x, hy: y + h / 2 },
+    { handle: 'e', hx: x + w, hy: cy },
+    { handle: 'w', hx: x, hy: cy },
   ]
 
   return (
     <g
+      transform={rotation !== 0 ? `rotate(${rotation}, ${cx}, ${cy})` : undefined}
       onPointerDown={onPointerDown}
       onDoubleClick={(e) => {
         e.stopPropagation()
@@ -46,12 +52,10 @@ export function TextElementSVG({ element, isSelected, onPointerDown }: Props) {
     >
       {element.background && (
         <rect
-          x={x - pad}
-          y={y - pad}
+          x={x - pad} y={y - pad}
           width={w + pad * 2}
           height={Math.max(h, textContentHeight) + pad * 2}
-          rx={bgRadius}
-          ry={bgRadius}
+          rx={bgRadius} ry={bgRadius}
           fill={element.background}
         />
       )}
@@ -68,7 +72,7 @@ export function TextElementSVG({ element, isSelected, onPointerDown }: Props) {
           </tspan>
         ))}
       </text>
-      {/* Invisible hit area for easier clicking */}
+      {/* Invisible hit area */}
       <rect x={x} y={y} width={w} height={Math.max(h, textContentHeight)} fill="transparent" />
       {isSelected && (
         <>
@@ -88,6 +92,18 @@ export function TextElementSVG({ element, isSelected, onPointerDown }: Props) {
               }}
             />
           ))}
+          {/* Rotation handle */}
+          <line x1={cx} y1={y - 22} x2={cx} y2={y}
+            stroke="#6366f1" strokeWidth={1.5} pointerEvents="none" />
+          <circle
+            cx={cx} cy={y - 22} r={5}
+            fill="#6366f1" stroke="white" strokeWidth={1.5}
+            style={{ cursor: 'alias' }}
+            onPointerDown={(e) => {
+              e.stopPropagation()
+              handleRotateStart(e, element.id, cx, cy, rotation)
+            }}
+          />
         </>
       )}
     </g>

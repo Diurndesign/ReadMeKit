@@ -7,16 +7,21 @@ export function useKeyboardShortcuts() {
   const duplicateElement = useEditorStore((s) => s.duplicateElement)
   const copySelected = useEditorStore((s) => s.copySelected)
   const paste = useEditorStore((s) => s.paste)
+  const groupSelected = useEditorStore((s) => s.groupSelected)
+  const ungroupSelected = useEditorStore((s) => s.ungroupSelected)
   const selectedIds = useEditorStore((s) => s.selectedIds)
   const setActiveTool = useUIStore((s) => s.setActiveTool)
   const resetView = useUIStore((s) => s.resetView)
   const setEditingId = useUIStore((s) => s.setEditingId)
+  const editingId = useUIStore((s) => s.editingId)
   const setShowShortcuts = useUIStore((s) => s.setShowShortcuts)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Skip when a text input or the inline text editor is active
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
+      if (useUIStore.getState().editingId) return
 
       const primaryId = selectedIds[selectedIds.length - 1] ?? null
 
@@ -41,6 +46,16 @@ export function useKeyboardShortcuts() {
           }
         }).filter(Boolean) as { id: string; x: number; y: number }[]
         if (moves.length > 0) useEditorStore.getState().batchMoveElements(moves)
+      }
+
+      // Ctrl+G — group selected; Ctrl+Shift+G — ungroup
+      if ((e.metaKey || e.ctrlKey) && e.key === 'g' && !e.shiftKey && selectedIds.length >= 2) {
+        e.preventDefault()
+        groupSelected()
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'g' && e.shiftKey && selectedIds.length > 0) {
+        e.preventDefault()
+        ungroupSelected()
       }
 
       // Ctrl+D — duplicate primary element
@@ -112,5 +127,5 @@ export function useKeyboardShortcuts() {
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [selectedIds, deleteSelected, duplicateElement, copySelected, paste, setActiveTool, resetView, setEditingId, setShowShortcuts])
+  }, [selectedIds, editingId, deleteSelected, duplicateElement, copySelected, paste, groupSelected, ungroupSelected, setActiveTool, resetView, setEditingId, setShowShortcuts])
 }
