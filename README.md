@@ -1,6 +1,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/status-Phase%207%20UX-6366f1?style=flat-square" alt="Status" />
   <img src="https://img.shields.io/badge/stack-React%2019%20%2B%20TypeScript%20%2B%20Vite-3b82f6?style=flat-square" alt="Stack" />
+  <img src="https://img.shields.io/badge/tests-83%20passed-22c55e?style=flat-square" alt="Tests" />
   <img src="https://img.shields.io/badge/cost-%240%2Fmonth-22c55e?style=flat-square" alt="Cost" />
   <img src="https://img.shields.io/badge/license-MIT-a1a1aa?style=flat-square" alt="License" />
 </p>
@@ -164,6 +165,7 @@ Bouton **Export** avec dropdown :
 | Etat | Zustand + Immer + Zundo | Simple, performant, undo/redo 50 etapes |
 | Styles | Tailwind CSS v4 | Utility-first, zero runtime |
 | Icones | Lucide React | Coherence visuelle, pas d'emojis |
+| Tests | Vitest + Testing Library | 83 tests unitaires + rendu, zero config |
 | Hebergement | Cloudflare Pages (prevu) | Gratuit, edge global |
 | BDD / Auth | Supabase (prevu) | Gratuit tier genereux, auth + storage |
 
