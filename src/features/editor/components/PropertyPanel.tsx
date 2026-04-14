@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   Copy, X, AlignLeft, AlignCenter, AlignRight,
   Trash2, Square, Circle, Type, Move, Minus, Image, Moon,
