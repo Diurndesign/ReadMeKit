@@ -15,6 +15,12 @@ export const CURSOR_MAP: Record<ResizeHandle, string> = {
   w: 'w-resize',
 }
 
+const GRID_STEP = 8
+
+function snap(v: number, enabled: boolean): number {
+  return enabled ? Math.round(v / GRID_STEP) * GRID_STEP : Math.round(v)
+}
+
 export function useResizeElement() {
   const isResizing = useRef(false)
   const activeHandle = useRef<ResizeHandle | null>(null)
@@ -24,6 +30,7 @@ export function useResizeElement() {
 
   const updateElement = useEditorStore((s) => s.updateElement)
   const zoom = useUIStore((s) => s.zoom)
+  const showGrid = useUIStore((s) => s.showGrid)
 
   const handleResizeStart = useCallback(
     (
@@ -50,14 +57,15 @@ export function useResizeElement() {
         const dx = (ev.clientX - startPos.current.x) / zoom
         const dy = (ev.clientY - startPos.current.y) / zoom
         const { x, y, width, height } = startBounds.current
+        const useSnap = showGrid
 
         let nx = x, ny = y, nw = width, nh = height
         const h = activeHandle.current!
 
-        if (h === 'nw' || h === 'w' || h === 'sw') { nx = x + dx; nw = width - dx }
-        if (h === 'ne' || h === 'e' || h === 'se') { nw = width + dx }
-        if (h === 'nw' || h === 'n' || h === 'ne') { ny = y + dy; nh = height - dy }
-        if (h === 'sw' || h === 's' || h === 'se') { nh = height + dy }
+        if (h === 'nw' || h === 'w' || h === 'sw') { nx = snap(x + dx, useSnap); nw = width - (nx - x) }
+        if (h === 'ne' || h === 'e' || h === 'se') { nw = snap(width + dx, useSnap) }
+        if (h === 'nw' || h === 'n' || h === 'ne') { ny = snap(y + dy, useSnap); nh = height - (ny - y) }
+        if (h === 'sw' || h === 's' || h === 'se') { nh = snap(height + dy, useSnap) }
 
         const MIN = 10
         if (nw < MIN) {
@@ -87,7 +95,7 @@ export function useResizeElement() {
       window.addEventListener('pointermove', onMove)
       window.addEventListener('pointerup', onUp)
     },
-    [updateElement, zoom]
+    [updateElement, zoom, showGrid]
   )
 
   return { handleResizeStart }

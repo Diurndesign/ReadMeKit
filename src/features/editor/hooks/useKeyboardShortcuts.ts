@@ -3,84 +3,78 @@ import { useEditorStore } from '../stores/editorStore'
 import { useUIStore } from '../stores/uiStore'
 
 export function useKeyboardShortcuts() {
-  const deleteElement = useEditorStore((s) => s.deleteElement)
+  const deleteSelected = useEditorStore((s) => s.deleteSelected)
   const duplicateElement = useEditorStore((s) => s.duplicateElement)
-  const selectedId = useEditorStore((s) => s.selectedId)
+  const selectedIds = useEditorStore((s) => s.selectedIds)
   const setActiveTool = useUIStore((s) => s.setActiveTool)
   const resetView = useUIStore((s) => s.resetView)
+  const setEditingId = useUIStore((s) => s.setEditingId)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
-      // Don't capture shortcuts when typing in inputs
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
         return
       }
 
-      // Delete / Backspace -> delete selected element
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
+      const primaryId = selectedIds[selectedIds.length - 1] ?? null
+
+      // Delete / Backspace
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length > 0) {
         e.preventDefault()
-        deleteElement(selectedId)
+        deleteSelected()
       }
 
-      // Ctrl+D -> duplicate selected element
-      if ((e.metaKey || e.ctrlKey) && e.key === 'd' && selectedId) {
+      // Ctrl+D — duplicate primary element
+      if ((e.metaKey || e.ctrlKey) && e.key === 'd' && primaryId) {
         e.preventDefault()
-        duplicateElement(selectedId)
+        duplicateElement(primaryId)
       }
 
-      // Ctrl+Z -> undo
+      // Ctrl+Z — undo
       if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault()
         useEditorStore.temporal.getState().undo()
       }
 
-      // Ctrl+Shift+Z -> redo
+      // Ctrl+Shift+Z / Ctrl+Y — redo
       if ((e.metaKey || e.ctrlKey) && e.key === 'z' && e.shiftKey) {
         e.preventDefault()
         useEditorStore.temporal.getState().redo()
       }
-
-      // Ctrl+Y -> redo (alternative)
       if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
         e.preventDefault()
         useEditorStore.temporal.getState().redo()
       }
 
-      // Ctrl+0 -> reset view
+      // Ctrl+0 — reset view
       if ((e.metaKey || e.ctrlKey) && e.key === '0') {
         e.preventDefault()
         resetView()
       }
 
-      // V -> select tool
-      if (e.key === 'v' || e.key === 'V') {
-        setActiveTool('select')
+      // Ctrl+A — select all
+      if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+        e.preventDefault()
+        const ids = useEditorStore.getState().elements.map((el) => el.id)
+        useEditorStore.getState().selectElements(ids)
       }
 
-      // R -> rectangle tool
-      if (e.key === 'r' || e.key === 'R') {
-        setActiveTool('rect')
-      }
+      // Tool shortcuts
+      if (e.key === 'v' || e.key === 'V') setActiveTool('select')
+      if (e.key === 'r' || e.key === 'R') setActiveTool('rect')
+      if (e.key === 't' || e.key === 'T') setActiveTool('text')
+      if (e.key === 'o' || e.key === 'O') setActiveTool('circle')
 
-      // T -> text tool
-      if (e.key === 't' || e.key === 'T') {
-        setActiveTool('text')
-      }
-
-      // O -> circle tool
-      if (e.key === 'o' || e.key === 'O') {
-        setActiveTool('circle')
-      }
-
-      // Escape -> deselect
+      // Escape — deselect / exit editing
       if (e.key === 'Escape') {
-        useEditorStore.getState().selectElement(null)
+        setEditingId(null)
+        useEditorStore.getState().clearSelection()
         setActiveTool('select')
       }
     }
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [selectedId, deleteElement, duplicateElement, setActiveTool, resetView])
+  }, [selectedIds, deleteSelected, duplicateElement, setActiveTool, resetView, setEditingId])
 }

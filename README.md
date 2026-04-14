@@ -1,124 +1,230 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/status-Phase%201%20%E2%80%94%20Foundations-6366f1?style=flat-square" alt="Status" />
+  <img src="https://img.shields.io/badge/status-Phase%203%20complete-6366f1?style=flat-square" alt="Status" />
   <img src="https://img.shields.io/badge/stack-React%2019%20%2B%20TypeScript%20%2B%20Vite-3b82f6?style=flat-square" alt="Stack" />
   <img src="https://img.shields.io/badge/cost-%240%2Fmonth-22c55e?style=flat-square" alt="Cost" />
+  <img src="https://img.shields.io/badge/license-MIT-a1a1aa?style=flat-square" alt="License" />
 </p>
 
 <h1 align="center">ReadMeKit</h1>
 
 <p align="center">
-  <strong>Un editeur visuel dans le navigateur pour creer de beaux composants README.</strong><br />
-  Bannieres heros, grilles de fonctionnalites, diagrammes d'architecture, sections contributeurs — exportables en SVG compatible GitHub.
+  <strong>Editeur visuel dans le navigateur pour creer de beaux composants README.</strong><br />
+  Bannieres heros, grilles de fonctionnalites, diagrammes, sections contributeurs — exportables en SVG et PNG.
 </p>
 
 ---
 
 ## Le probleme
 
-Aujourd'hui, creer un README soigne sur GitHub est penible. Les developpeurs assemblent 4 a 5 outils separes (capsule-render, shields.io, github-readme-stats, readme.so) aux styles visuels incompatibles. Le resultat : des READMEs qui ressemblent a un collage.
+Creer un README soigne sur GitHub est penible. Les developpeurs assemblent 4 a 5 outils separes (capsule-render, shields.io, github-readme-stats, readme.so) aux styles incompatibles. Le resultat : des READMEs qui ressemblent a un collage.
 
-**Aucun editeur visuel unifie n'existe pour les composants README.**
+**ReadMeKit est l'editeur visuel unifie qui manquait.**
 
-## La solution
-
-ReadMeKit est un editeur visuel type Figma, construit pour un seul objectif : concevoir des composants README et les exporter en SVG qui s'affiche parfaitement sur GitHub.
-
-- **Editeur SVG natif** — ce que tu vois dans l'editeur est exactement ce qui sera exporte
-- **Glisser-deposer** — positionne les elements intuitivement
-- **Panneau de proprietes** — couleur, taille, opacite, typographie, tout se regle visuellement
-- **Undo/Redo** — Ctrl+Z / Ctrl+Shift+Z avec historique de 50 etats
-- **Onboarding interactif** — un guide pas-a-pas au premier lancement
-- **Zero cout** — stack 100% gratuite (Cloudflare Pages, Supabase, open source)
-
-## Stack technique
-
-| Couche | Technologie |
-|---|---|
-| Frontend | Vite + React 19 + TypeScript |
-| Editeur | SVG natif React (pas de canvas) |
-| Etat | Zustand + Immer + Zundo (undo/redo) |
-| Styles | Tailwind CSS v4 |
-| Icones | Lucide React |
-| Hebergement | Cloudflare Pages (prevu) |
-| BDD / Auth | Supabase (prevu) |
-| Paiements | Lemon Squeezy ou Polar (prevu) |
+---
 
 ## Demarrage rapide
 
 ```bash
-# Cloner le depot
-git clone https://github.com/difrancesco/readmekit.git
-cd readmekit
-
-# Installer les dependances
+git clone https://github.com/Diurndesign/ReadMeKit.git
+cd ReadMeKit
 npm install
-
-# Lancer le serveur de dev
 npm run dev
 ```
 
-Ouvrir [http://localhost:5173](http://localhost:5173) — l'onboarding interactif te guidera.
+Ouvrir [http://localhost:5173](http://localhost:5173). L'onboarding interactif guide le premier lancement.
+
+---
+
+## Fonctionnalites implementees
+
+### Elements
+
+| Type | Raccourci | Proprietes |
+|---|---|---|
+| Rectangle | `R` | Position, taille, couleur de remplissage, bordure (couleur + epaisseur), rayon des coins, opacite |
+| Texte | `T` | Contenu, taille de police, graisse, alignement, couleur, opacite |
+| Cercle / Ellipse | `O` | Position, taille (rx/ry), couleur, bordure, opacite |
+
+Tous les elements ont : `locked`, `visible`, `name` (optionnel pour le panel calques).
+
+### Canvas
+
+- **Zoom** — molette souris ou boutons +/- ; indicateur de pourcentage cliquable (reset)
+- **Pan** — Espace + glisser, ou glisser sur zone vide en mode Select
+- **Grille** — grille de points 20px, toggle bouton ou `G` ; quand active, sert de reference visuelle
+- **Snap-to-grid 8px** — drag et resize alignes sur grille de 8px quand la grille est activee
+- **Fond** — couleur de fond du canvas configurable (section Canvas dans le panneau de proprietes)
+- **Reset vue** — `Ctrl+0` ou bouton Maximize
+
+### Selection et manipulation
+
+| Action | Comment faire |
+|---|---|
+| Selectionner | Clic sur l'element |
+| Multi-selectionner | Shift+clic pour ajouter/retirer |
+| Selection marquee | Glisser sur zone vide (trace un rectangle de selection) |
+| Tout selectionner | `Ctrl+A` |
+| Deplacer | Glisser l'element (snap-to-grid si grille active) |
+| Deplacer groupe | Selectionner plusieurs + glisser |
+| Redimensionner | 8 poignees autour de l'element selectionne |
+| Dupliquer | `Ctrl+D` ou bouton dans le panneau |
+| Supprimer | `Delete` / `Backspace` |
+| Annuler | `Ctrl+Z` (50 etapes) |
+| Retablir | `Ctrl+Shift+Z` |
+| Edition texte inline | Double-clic sur un element texte |
+
+### Panel calques (sidebar gauche)
+
+- Liste tous les calques dans l'ordre (couche superieure en premier)
+- **Clic** — selectionner le calque
+- **Double-clic** sur le nom — renommer
+- **Icone œil** — masquer/afficher (l'element masque n'apparait pas sur le canvas ni dans les exports)
+- **Icone cadenas** — verrouiller (impossible de deplacer ou redimensionner)
+- **Icone poubelle** — supprimer
+
+### Panneau de proprietes (sidebar droite)
+
+- **Vide** — message d'aide quand rien n'est selectionne
+- **Multi-selection** — affiche le nombre d'elements, bouton supprimer le groupe
+- **Element unique** — proprietes specifiques au type + position, taille, opacite
+  - Icone de type (carre / cercle / T) dans le header
+  - Boutons Dupliquer, Avancer d'un calque, Reculer d'un calque
+  - Alignement texte avec icones Lucide (pas de lettres)
+  - Color picker fusionne (swatch + champ hex sur une ligne)
+
+### Templates
+
+5 templates prets a l'emploi accessibles via le bouton **Templates** :
+
+| Template | Description |
+|---|---|
+| Hero Banner | Banniere titre avec sous-titre sur fond indigo |
+| Feature Grid | Grille de 3 cartes (Fast / Reliable / Scalable) |
+| Tech Stack | Badges de technologies colores (React, TS, Node, etc.) |
+| Stats Card | Carte de statistiques (stars, contributeurs, uptime) |
+| Contributors | Section equipe avec avatars cercles et roles |
+
+### Export
+
+Bouton **Export** avec dropdown :
+
+| Format | Details |
+|---|---|
+| SVG vectoriel | Fichier `.svg` compatible GitHub, seuls les elements visibles sont inclus |
+| PNG x2 (Retina) | Rendu a 2x la resolution, fond transparent |
+| PNG x1 | Rendu a resolution native, fond transparent |
+
+### Onboarding interactif
+
+Guide pas-a-pas au premier lancement (10 etapes) avec :
+- Spotlight sur l'element cible
+- Detection automatique des actions utilisateur pour avancer
+- Bouton "Passer le guide" a tout moment
+- Ne s'affiche plus une fois termine (localStorage)
+
+---
 
 ## Raccourcis clavier
 
 | Raccourci | Action |
 |---|---|
-| `V` | Outil de selection |
+| `V` | Outil Select |
 | `R` | Outil Rectangle |
 | `T` | Outil Texte |
-| `Delete` / `Backspace` | Supprimer l'element selectionne |
+| `O` | Outil Cercle |
 | `Ctrl+Z` | Annuler |
 | `Ctrl+Shift+Z` | Retablir |
-| `Escape` | Deselectionner |
-
-## Architecture
-
-Le projet suit le pattern **Bulletproof React** — organisation par fonctionnalite, pas par type de fichier.
-
-```
-src/
-├── app/                    # Coquille de l'application
-├── components/             # Composants UI partages (shadcn/ui)
-├── features/
-│   ├── editor/             # L'editeur visuel (canvas, toolbar, panneau)
-│   │   ├── components/     # EditorCanvas, EditorToolbar, PropertyPanel
-│   │   ├── hooks/          # useDragElement, useKeyboardShortcuts
-│   │   ├── stores/         # editorStore (Zustand), uiStore
-│   │   └── types/          # EditorElement, RectElement, TextElement
-│   ├── export/             # Pipeline d'export SVG/PNG (a venir)
-│   ├── templates/          # Templates predefinis (a venir)
-│   ├── auth/               # Authentification GitHub (a venir)
-│   └── dashboard/          # Tableau de bord utilisateur (a venir)
-├── hooks/                  # Hooks partages
-├── utils/                  # Utilitaires (cn, generateId)
-└── main.tsx
-```
-
-## Roadmap
-
-Le projet suit une roadmap de 26 semaines :
-
-- [x] **Phase 1** — Fondations : canvas SVG, ajout/selection/deplacement d'elements, panneau de proprietes, undo/redo, onboarding
-- [ ] **Phase 2** — Interactions : redimensionnement, edition inline, selection multiple, premiers templates
-- [ ] **Phase 3** — Export : SVG compatible GitHub, mode sombre, gestion des polices
-- [ ] **Phase 4** — Comptes : auth Supabase, sauvegarde des designs, dashboard
-- [ ] **Phase 5** — Composants : diagrammes d'architecture, section contributeurs, bibliotheque de templates
-- [ ] **Phase 6** — Lancement : landing page, analytics, monetisation, ProductHunt
-
-## Produits freres (prevus)
-
-ReadMeKit fait partie d'un ecosysteme de 3 outils GitHub au design soigne :
-
-1. **ReadMeKit** — editeur visuel de composants README *(en cours)*
-2. **RepoScore** — tableau de bord de sante de depots (score 0-100)
-3. **GitCinema** — visualiseur cinematique de l'evolution d'un depot
-
-## Licence
-
-MIT
+| `Ctrl+D` | Dupliquer l'element selectionne |
+| `Ctrl+A` | Tout selectionner |
+| `Delete` / `Backspace` | Supprimer la selection |
+| `Escape` | Deselectionner / fermer edition inline |
+| `Ctrl+0` | Reset zoom et pan |
+| Espace + glisser | Pan du canvas |
+| Molette | Zoom (centre sur le curseur) |
 
 ---
 
-<p align="center">
-  <sub>Construit par <a href="https://github.com/difrancesco">@difrancesco</a> — un projet solo, weekends + soirees.</sub>
-</p>
+## Stack technique
+
+| Couche | Technologie | Pourquoi |
+|---|---|---|
+| Frontend | React 19 + TypeScript + Vite | Rapide, typage strict, HMR |
+| Editeur | SVG natif React | WYSIWYG : le rendu editeur = l'export |
+| Etat | Zustand + Immer + Zundo | Simple, performant, undo/redo 50 etapes |
+| Styles | Tailwind CSS v4 | Utility-first, zero runtime |
+| Icones | Lucide React | Coherence visuelle, pas d'emojis |
+| Hebergement | Cloudflare Pages (prevu) | Gratuit, edge global |
+| BDD / Auth | Supabase (prevu) | Gratuit tier genereux, auth + storage |
+
+---
+
+## Architecture
+
+Le projet suit le pattern **Bulletproof React** — organisation par fonctionnalite.
+
+```
+src/
+├── app/
+│   └── App.tsx                    # Coquille : Toolbar + LayerPanel + Canvas + PropertyPanel
+├── features/
+│   └── editor/
+│       ├── components/
+│       │   ├── EditorCanvas.tsx       # Canvas SVG, zoom/pan, marquee, placement elements
+│       │   ├── EditorToolbar.tsx      # Outils, undo/redo, grille, zoom, templates, export
+│       │   ├── LayerPanel.tsx         # Sidebar gauche : liste des calques
+│       │   ├── PropertyPanel.tsx      # Sidebar droite : proprietes de l'element selectionne
+│       │   ├── ElementRenderer.tsx    # Switch type → composant SVG
+│       │   ├── OnboardingOverlay.tsx  # Guide interactif premier lancement
+│       │   ├── TemplatesPanel.tsx     # Modal de selection de templates
+│       │   └── elements/
+│       │       ├── RectElement.tsx    # <rect> SVG + 8 poignees de redimensionnement
+│       │       ├── TextElement.tsx    # <text> SVG + edition inline (double-clic)
+│       │       └── CircleElement.tsx  # <ellipse> SVG + 8 poignees
+│       ├── data/
+│       │   └── templates.ts           # 5 templates avec factory build()
+│       ├── hooks/
+│       │   ├── useDragElement.ts      # Drag + snap-to-grid + multi-drag
+│       │   ├── useResizeElement.ts    # 8 poignees + snap-to-grid
+│       │   └── useKeyboardShortcuts.ts
+│       ├── stores/
+│       │   ├── editorStore.ts         # Elements, selection, CRUD, undo/redo (Zundo)
+│       │   └── uiStore.ts             # Outil actif, zoom, pan, grille, modales
+│       └── types/
+│           └── elements.ts            # BaseElement, RectElement, TextElement, CircleElement
+└── utils/
+    ├── cn.ts                          # clsx + tailwind-merge
+    └── generateId.ts                  # nanoid court
+```
+
+---
+
+## Roadmap
+
+- [x] **Phase 1** — Fondations : canvas SVG, elements rect/text, proprietes, undo/redo, onboarding
+- [x] **Phase 2** — Interactions : redimensionnement 8 poignees, zoom/pan, cercle, multi-selection, edition inline, templates, Ctrl+D
+- [x] **Phase 3** — Outils : panel calques (visibilite, verrouillage, renommage), snap-to-grid, export SVG/PNG, export dropdown
+- [ ] **Phase 4** — Persistence : sauvegarde auto localStorage, canvas background, outils d'alignement, copier SVG presse-papier
+- [ ] **Phase 5** — Comptes : auth Supabase, sauvegarde cloud, dashboard projets
+- [ ] **Phase 6** — Composants avances : diagrammes d'architecture, image element, gradient fill, groupes
+- [ ] **Phase 7** — Lancement : landing page, analytics, monetisation, ProductHunt
+
+---
+
+## Contribuer
+
+```bash
+# Branche de dev active
+git checkout claude/project-review-planning-Dsj7U
+
+# Lancer les verifs TypeScript
+npx tsc --noEmit
+
+# Lancer le dev server
+npm run dev
+```
+
+---
+
+## Licence
+
+MIT — construit par [@Diurndesign](https://github.com/Diurndesign)
