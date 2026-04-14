@@ -47,7 +47,12 @@ export const useUIStore = create<UIState>()((set) => ({
   setActiveTool: (tool) => set({ activeTool: tool }),
   setZoom: (zoom) => set({ zoom: Math.max(0.1, Math.min(5, zoom)) }),
   toggleGrid: () => set((state) => ({ showGrid: !state.showGrid })),
-  setPanOffset: (offset) => set({ panOffset: offset }),
+  setPanOffset: (offset) => set({
+    panOffset: {
+      x: Math.max(-2000, Math.min(6000, offset.x)),
+      y: Math.max(-2000, Math.min(6000, offset.y)),
+    },
+  }),
   resetView: () => set({ zoom: 1, panOffset: { x: 0, y: 0 } }),
   setEditingId: (id) => set({ editingId: id }),
   setShowTemplates: (show) => set({ showTemplates: show }),
