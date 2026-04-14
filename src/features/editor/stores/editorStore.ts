@@ -7,6 +7,7 @@ import { generateId } from '@/utils/generateId'
 interface EditorState {
   elements: EditorElement[]
   selectedIds: string[]
+  clipboard: EditorElement[]
 
   addElement: (element: EditorElement) => void
   addElements: (elements: EditorElement[]) => void
@@ -28,6 +29,8 @@ interface EditorState {
   renameElement: (id: string, name: string) => void
   alignElements: (ids: string[], direction: 'left' | 'center-h' | 'right' | 'top' | 'middle-v' | 'bottom') => void
   distributeElements: (ids: string[], axis: 'h' | 'v') => void
+  copySelected: () => void
+  paste: () => void
 }
 
 export const useEditorStore = create<EditorState>()(
@@ -35,6 +38,7 @@ export const useEditorStore = create<EditorState>()(
     immer((set) => ({
       elements: [],
       selectedIds: [],
+      clipboard: [],
 
       addElement: (element) =>
         set((state) => {
@@ -213,7 +217,25 @@ export const useEditorStore = create<EditorState>()(
             }
           }
         }),
+
+      copySelected: () =>
+        set((state) => {
+          state.clipboard = state.elements.filter((e) => state.selectedIds.includes(e.id))
+        }),
+
+      paste: () =>
+        set((state) => {
+          if (state.clipboard.length === 0) return
+          const newEls = state.clipboard.map((el) => ({
+            ...el,
+            id: generateId(),
+            x: el.x + 20,
+            y: el.y + 20,
+          }))
+          state.elements.push(...newEls)
+          state.selectedIds = newEls.map((e) => e.id)
+        }),
     })),
-    { limit: 50 }
+    { limit: 50, partialize: (state) => ({ elements: state.elements }) }
   )
 )

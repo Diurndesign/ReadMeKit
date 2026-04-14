@@ -67,6 +67,27 @@ export function useResizeElement() {
         if (h === 'nw' || h === 'n' || h === 'ne') { ny = snap(y + dy, useSnap); nh = height - (ny - y) }
         if (h === 'sw' || h === 's' || h === 'se') { nh = snap(height + dy, useSnap) }
 
+        // Shift: lock aspect ratio
+        if (ev.shiftKey && width > 0 && height > 0) {
+          const ar = width / height
+          if (h === 'n' || h === 's') {
+            nw = nh * ar
+          } else if (h === 'e' || h === 'w') {
+            nh = nw / ar
+          } else {
+            // corner — let the larger delta drive
+            const dw = Math.abs(nw - width)
+            const dh = Math.abs(nh - height)
+            if (dw >= dh) {
+              nh = nw / ar
+              if (h === 'nw' || h === 'n' || h === 'ne') ny = y + height - nh
+            } else {
+              nw = nh * ar
+              if (h === 'nw' || h === 'w' || h === 'sw') nx = x + width - nw
+            }
+          }
+        }
+
         const MIN = 10
         if (nw < MIN) {
           if (h === 'nw' || h === 'w' || h === 'sw') nx = x + width - MIN

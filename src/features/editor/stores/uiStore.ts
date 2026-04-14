@@ -9,6 +9,7 @@ interface UIState {
   panOffset: { x: number; y: number }
   editingId: string | null
   showTemplates: boolean
+  showShortcuts: boolean
   canvasBg: string
   canvasWidth: number | null
   canvasHeight: number | null
@@ -20,6 +21,7 @@ interface UIState {
   resetView: () => void
   setEditingId: (id: string | null) => void
   setShowTemplates: (show: boolean) => void
+  setShowShortcuts: (show: boolean) => void
   setCanvasBg: (color: string) => void
   setCanvasSize: (w: number | null, h: number | null) => void
 }
@@ -31,6 +33,7 @@ export const useUIStore = create<UIState>()((set) => ({
   panOffset: { x: 0, y: 0 },
   editingId: null,
   showTemplates: false,
+  showShortcuts: false,
   canvasBg: 'transparent',
   canvasWidth: null,
   canvasHeight: null,
@@ -42,6 +45,7 @@ export const useUIStore = create<UIState>()((set) => ({
   resetView: () => set({ zoom: 1, panOffset: { x: 0, y: 0 } }),
   setEditingId: (id) => set({ editingId: id }),
   setShowTemplates: (show) => set({ showTemplates: show }),
+  setShowShortcuts: (show) => set({ showShortcuts: show }),
   setCanvasBg: (color) => set({ canvasBg: color }),
   setCanvasSize: (w, h) => set({ canvasWidth: w, canvasHeight: h }),
 }))

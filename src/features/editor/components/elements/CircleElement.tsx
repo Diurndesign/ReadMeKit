@@ -7,6 +7,16 @@ interface Props {
   onPointerDown: (e: React.PointerEvent) => void
 }
 
+function gradientCoords(angleDeg: number) {
+  const a = (angleDeg * Math.PI) / 180
+  return {
+    x1: `${50 - 50 * Math.sin(a)}%`,
+    y1: `${50 - 50 * Math.cos(a)}%`,
+    x2: `${50 + 50 * Math.sin(a)}%`,
+    y2: `${50 + 50 * Math.cos(a)}%`,
+  }
+}
+
 export function CircleElementSVG({ element, isSelected, onPointerDown }: Props) {
   const { handleResizeStart } = useResizeElement()
   const { x, y, width: w, height: h } = element
@@ -14,6 +24,10 @@ export function CircleElementSVG({ element, isSelected, onPointerDown }: Props) 
   const cy = y + h / 2
   const rx = w / 2
   const ry = h / 2
+
+  const hasGradient = !!(element.gradientFrom && element.gradientTo)
+  const gradId = `grad-${element.id}`
+  const coords = hasGradient ? gradientCoords(element.gradientAngle ?? 90) : null
 
   const cornerHandles: { handle: ResizeHandle; hx: number; hy: number }[] = [
     { handle: 'nw', hx: x, hy: y },
@@ -28,12 +42,20 @@ export function CircleElementSVG({ element, isSelected, onPointerDown }: Props) 
 
   return (
     <g onPointerDown={onPointerDown} style={{ cursor: 'move', opacity: element.opacity }}>
+      {hasGradient && coords && (
+        <defs>
+          <linearGradient id={gradId} x1={coords.x1} y1={coords.y1} x2={coords.x2} y2={coords.y2}>
+            <stop offset="0%" stopColor={element.gradientFrom} />
+            <stop offset="100%" stopColor={element.gradientTo} />
+          </linearGradient>
+        </defs>
+      )}
       <ellipse
         cx={cx}
         cy={cy}
         rx={rx}
         ry={ry}
-        fill={element.fill}
+        fill={hasGradient ? `url(#${gradId})` : element.fill}
         stroke={element.stroke}
         strokeWidth={element.strokeWidth}
       />

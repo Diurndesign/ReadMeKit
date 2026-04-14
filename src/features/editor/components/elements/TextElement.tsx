@@ -18,6 +18,9 @@ export function TextElementSVG({ element, isSelected, onPointerDown }: Props) {
   const textX =
     element.textAlign === 'center' ? x + w / 2 : element.textAlign === 'right' ? x + w : x
 
+  const pad = element.bgPadding ?? 4
+  const bgRadius = element.bgRadius ?? 4
+
   const cornerHandles: { handle: ResizeHandle; hx: number; hy: number }[] = [
     { handle: 'nw', hx: x, hy: y },
     { handle: 'ne', hx: x + w, hy: y },
@@ -36,6 +39,17 @@ export function TextElementSVG({ element, isSelected, onPointerDown }: Props) {
       }}
       style={{ cursor: 'move', opacity: element.opacity }}
     >
+      {element.background && (
+        <rect
+          x={x - pad}
+          y={y - pad}
+          width={w + pad * 2}
+          height={h + pad * 2}
+          rx={bgRadius}
+          ry={bgRadius}
+          fill={element.background}
+        />
+      )}
       <text
         x={textX}
         y={y + element.fontSize}

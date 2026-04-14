@@ -5,10 +5,13 @@ import { useUIStore } from '../stores/uiStore'
 export function useKeyboardShortcuts() {
   const deleteSelected = useEditorStore((s) => s.deleteSelected)
   const duplicateElement = useEditorStore((s) => s.duplicateElement)
+  const copySelected = useEditorStore((s) => s.copySelected)
+  const paste = useEditorStore((s) => s.paste)
   const selectedIds = useEditorStore((s) => s.selectedIds)
   const setActiveTool = useUIStore((s) => s.setActiveTool)
   const resetView = useUIStore((s) => s.resetView)
   const setEditingId = useUIStore((s) => s.setEditingId)
+  const setShowShortcuts = useUIStore((s) => s.setShowShortcuts)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -44,6 +47,18 @@ export function useKeyboardShortcuts() {
       if ((e.metaKey || e.ctrlKey) && e.key === 'd' && primaryId) {
         e.preventDefault()
         duplicateElement(primaryId)
+      }
+
+      // Ctrl+C — copy selected
+      if ((e.metaKey || e.ctrlKey) && e.key === 'c' && selectedIds.length > 0) {
+        e.preventDefault()
+        copySelected()
+      }
+
+      // Ctrl+V — paste
+      if ((e.metaKey || e.ctrlKey) && e.key === 'v') {
+        e.preventDefault()
+        paste()
       }
 
       // Ctrl+Z — undo
@@ -83,17 +98,19 @@ export function useKeyboardShortcuts() {
         if (e.key === 'o' || e.key === 'O') setActiveTool('circle')
         if (e.key === 'l' || e.key === 'L') setActiveTool('line')
         if (e.key === 'i' || e.key === 'I') setActiveTool('image')
+        if (e.key === '?') setShowShortcuts(true)
       }
 
-      // Escape — deselect / exit editing
+      // Escape — deselect / exit editing / close modals
       if (e.key === 'Escape') {
         setEditingId(null)
         useEditorStore.getState().clearSelection()
         setActiveTool('select')
+        setShowShortcuts(false)
       }
     }
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [selectedIds, deleteSelected, duplicateElement, setActiveTool, resetView, setEditingId])
+  }, [selectedIds, deleteSelected, duplicateElement, copySelected, paste, setActiveTool, resetView, setEditingId, setShowShortcuts])
 }

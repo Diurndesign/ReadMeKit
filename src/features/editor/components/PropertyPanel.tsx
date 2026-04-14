@@ -97,11 +97,66 @@ function CommonProperties({ element, onUpdate }: { element: EditorElement; onUpd
 
 // ─── Type-specific properties ─────────────────────────────────────────────────
 
+function GradientToggle({ active, onToggle }: { active: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      className={cn(
+        'relative w-9 h-5 rounded-full transition-colors shrink-0',
+        active ? 'bg-[#6366f1]' : 'bg-[#27272a]',
+      )}
+    >
+      <span
+        className={cn(
+          'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform',
+          active ? 'translate-x-4' : 'translate-x-0',
+        )}
+      />
+    </button>
+  )
+}
+
 function RectProperties({ element, onUpdate }: { element: RectElement; onUpdate: (u: Partial<RectElement>) => void }) {
+  const hasGradient = !!(element.gradientFrom && element.gradientTo)
   return (
     <>
       <SectionLabel>Remplissage</SectionLabel>
-      <ColorInput label="Fill" value={element.fill} onChange={(v) => onUpdate({ fill: v })} />
+      {!hasGradient && (
+        <ColorInput label="Fill" value={element.fill} onChange={(v) => onUpdate({ fill: v })} />
+      )}
+      <div className="flex items-center justify-between mt-1.5">
+        <span className="text-xs text-[#71717a]">Dégradé</span>
+        <GradientToggle
+          active={hasGradient}
+          onToggle={() => {
+            if (hasGradient) {
+              onUpdate({ gradientFrom: undefined, gradientTo: undefined, gradientAngle: undefined })
+            } else {
+              onUpdate({ gradientFrom: element.fill, gradientTo: '#ec4899', gradientAngle: 90 })
+            }
+          }}
+        />
+      </div>
+      {hasGradient && (
+        <>
+          <div className="mt-1.5 space-y-1.5">
+            <ColorInput label="De" value={element.gradientFrom!} onChange={(v) => onUpdate({ gradientFrom: v })} />
+            <ColorInput label="À" value={element.gradientTo!} onChange={(v) => onUpdate({ gradientTo: v })} />
+          </div>
+          <div className="flex items-center gap-2 mt-1.5">
+            <label className="text-xs text-[#71717a] w-8 shrink-0 text-right">°</label>
+            <input
+              type="range" min="0" max="360" step="15"
+              value={element.gradientAngle ?? 90}
+              onChange={(e) => onUpdate({ gradientAngle: Number(e.target.value) })}
+              className="flex-1 accent-[#6366f1] h-1"
+            />
+            <span className="text-xs text-[#71717a] w-9 text-right tabular-nums">
+              {element.gradientAngle ?? 90}°
+            </span>
+          </div>
+        </>
+      )}
       <SectionLabel>Bordure</SectionLabel>
       <ColorInput label="Coul." value={element.stroke === 'transparent' ? '#000000' : element.stroke} onChange={(v) => onUpdate({ stroke: v })} />
       <div className="grid grid-cols-2 gap-1.5 mt-1.5">
@@ -113,10 +168,46 @@ function RectProperties({ element, onUpdate }: { element: RectElement; onUpdate:
 }
 
 function CircleProperties({ element, onUpdate }: { element: CircleElement; onUpdate: (u: Partial<CircleElement>) => void }) {
+  const hasGradient = !!(element.gradientFrom && element.gradientTo)
   return (
     <>
       <SectionLabel>Remplissage</SectionLabel>
-      <ColorInput label="Fill" value={element.fill} onChange={(v) => onUpdate({ fill: v })} />
+      {!hasGradient && (
+        <ColorInput label="Fill" value={element.fill} onChange={(v) => onUpdate({ fill: v })} />
+      )}
+      <div className="flex items-center justify-between mt-1.5">
+        <span className="text-xs text-[#71717a]">Dégradé</span>
+        <GradientToggle
+          active={hasGradient}
+          onToggle={() => {
+            if (hasGradient) {
+              onUpdate({ gradientFrom: undefined, gradientTo: undefined, gradientAngle: undefined })
+            } else {
+              onUpdate({ gradientFrom: element.fill, gradientTo: '#a78bfa', gradientAngle: 90 })
+            }
+          }}
+        />
+      </div>
+      {hasGradient && (
+        <>
+          <div className="mt-1.5 space-y-1.5">
+            <ColorInput label="De" value={element.gradientFrom!} onChange={(v) => onUpdate({ gradientFrom: v })} />
+            <ColorInput label="À" value={element.gradientTo!} onChange={(v) => onUpdate({ gradientTo: v })} />
+          </div>
+          <div className="flex items-center gap-2 mt-1.5">
+            <label className="text-xs text-[#71717a] w-8 shrink-0 text-right">°</label>
+            <input
+              type="range" min="0" max="360" step="15"
+              value={element.gradientAngle ?? 90}
+              onChange={(e) => onUpdate({ gradientAngle: Number(e.target.value) })}
+              className="flex-1 accent-[#6366f1] h-1"
+            />
+            <span className="text-xs text-[#71717a] w-9 text-right tabular-nums">
+              {element.gradientAngle ?? 90}°
+            </span>
+          </div>
+        </>
+      )}
       <SectionLabel>Bordure</SectionLabel>
       <ColorInput label="Coul." value={element.stroke === 'transparent' ? '#000000' : element.stroke} onChange={(v) => onUpdate({ stroke: v })} />
       <div className="mt-1.5">
@@ -181,6 +272,33 @@ function TextProperties({ element, onUpdate }: { element: TextElement; onUpdate:
       </div>
       <SectionLabel>Couleur</SectionLabel>
       <ColorInput label="Fill" value={element.fill} onChange={(v) => onUpdate({ fill: v })} />
+      <SectionLabel>Fond du texte</SectionLabel>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs text-[#71717a]">Activer</span>
+        <button
+          onClick={() => onUpdate({ background: element.background ? undefined : '#18181b' })}
+          className={cn(
+            'relative w-9 h-5 rounded-full transition-colors shrink-0',
+            element.background ? 'bg-[#6366f1]' : 'bg-[#27272a]',
+          )}
+        >
+          <span
+            className={cn(
+              'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform',
+              element.background ? 'translate-x-4' : 'translate-x-0',
+            )}
+          />
+        </button>
+      </div>
+      {element.background && (
+        <>
+          <ColorInput label="Coul." value={element.background} onChange={(v) => onUpdate({ background: v })} />
+          <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+            <PropertyInput label="Pad" value={element.bgPadding ?? 4} type="number" onChange={(v) => onUpdate({ bgPadding: Math.max(0, Number(v)) })} />
+            <PropertyInput label="Rx" value={element.bgRadius ?? 4} type="number" onChange={(v) => onUpdate({ bgRadius: Math.max(0, Number(v)) })} />
+          </div>
+        </>
+      )}
     </>
   )
 }

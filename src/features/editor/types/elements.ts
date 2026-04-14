@@ -18,6 +18,9 @@ export interface RectElement extends BaseElement {
   stroke: string
   strokeWidth: number
   cornerRadius: number
+  gradientFrom?: string
+  gradientTo?: string
+  gradientAngle?: number
 }
 
 export interface TextElement extends BaseElement {
@@ -28,6 +31,9 @@ export interface TextElement extends BaseElement {
   fontFamily: string
   fill: string
   textAlign: 'left' | 'center' | 'right'
+  background?: string
+  bgPadding?: number
+  bgRadius?: number
 }
 
 export interface CircleElement extends BaseElement {
@@ -35,6 +41,9 @@ export interface CircleElement extends BaseElement {
   fill: string
   stroke: string
   strokeWidth: number
+  gradientFrom?: string
+  gradientTo?: string
+  gradientAngle?: number
 }
 
 /**

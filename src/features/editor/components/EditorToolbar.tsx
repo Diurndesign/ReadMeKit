@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import {
   MousePointer2, Square, Type, Circle, Undo2, Redo2, Grid3X3,
   ZoomIn, ZoomOut, Maximize2, Download, LayoutTemplate, Image, FileCode,
-  ChevronDown, Clipboard, Check, Minus, RectangleHorizontal,
+  ChevronDown, Clipboard, Check, Minus, RectangleHorizontal, FileText,
 } from 'lucide-react'
 import { useEditorStore } from '../stores/editorStore'
 import { useUIStore, type ActiveTool } from '../stores/uiStore'
@@ -12,6 +12,16 @@ import type { EditorElement } from '../types/elements'
 // ─── Shared SVG builder ───────────────────────────────────────────────────────
 
 const PAD = 20
+
+function svgGradientCoords(angleDeg: number) {
+  const a = (angleDeg * Math.PI) / 180
+  return {
+    x1: `${50 - 50 * Math.sin(a)}%`,
+    y1: `${50 - 50 * Math.cos(a)}%`,
+    x2: `${50 + 50 * Math.sin(a)}%`,
+    y2: `${50 + 50 * Math.cos(a)}%`,
+  }
+}
 
 function buildSvgString(
   elements: EditorElement[],
@@ -54,15 +64,34 @@ function buildSvgString(
     if (el.type === 'rect') {
       const st = el.strokeWidth > 0 ? ` stroke="${el.stroke}" stroke-width="${el.strokeWidth}"` : ''
       const rx = el.cornerRadius > 0 ? ` rx="${el.cornerRadius}" ry="${el.cornerRadius}"` : ''
-      body.push(`  <rect x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}"${rx} fill="${el.fill}"${st}${op}/>`)
+      let fill = el.fill
+      if (el.gradientFrom && el.gradientTo) {
+        const gradId = `grad-${el.id}`
+        const gc = svgGradientCoords(el.gradientAngle ?? 90)
+        defs.push(`  <linearGradient id="${gradId}" x1="${gc.x1}" y1="${gc.y1}" x2="${gc.x2}" y2="${gc.y2}"><stop offset="0%" stop-color="${el.gradientFrom}"/><stop offset="100%" stop-color="${el.gradientTo}"/></linearGradient>`)
+        fill = `url(#${gradId})`
+      }
+      body.push(`  <rect x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}"${rx} fill="${fill}"${st}${op}/>`)
     } else if (el.type === 'circle') {
       const cx = el.x + el.width / 2; const cy = el.y + el.height / 2
       const st = el.strokeWidth > 0 ? ` stroke="${el.stroke}" stroke-width="${el.strokeWidth}"` : ''
-      body.push(`  <ellipse cx="${cx}" cy="${cy}" rx="${el.width / 2}" ry="${el.height / 2}" fill="${el.fill}"${st}${op}/>`)
+      let fill = el.fill
+      if (el.gradientFrom && el.gradientTo) {
+        const gradId = `grad-${el.id}`
+        const gc = svgGradientCoords(el.gradientAngle ?? 90)
+        defs.push(`  <linearGradient id="${gradId}" x1="${gc.x1}" y1="${gc.y1}" x2="${gc.x2}" y2="${gc.y2}"><stop offset="0%" stop-color="${el.gradientFrom}"/><stop offset="100%" stop-color="${el.gradientTo}"/></linearGradient>`)
+        fill = `url(#${gradId})`
+      }
+      body.push(`  <ellipse cx="${cx}" cy="${cy}" rx="${el.width / 2}" ry="${el.height / 2}" fill="${fill}"${st}${op}/>`)
     } else if (el.type === 'text') {
       const anchor = el.textAlign === 'center' ? 'middle' : el.textAlign === 'right' ? 'end' : 'start'
       const tx = el.textAlign === 'center' ? el.x + el.width / 2 : el.textAlign === 'right' ? el.x + el.width : el.x
       const escaped = el.content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      if (el.background) {
+        const pad = el.bgPadding ?? 4
+        const bgRx = el.bgRadius ?? 4
+        body.push(`  <rect x="${el.x - pad}" y="${el.y - pad}" width="${el.width + pad * 2}" height="${el.height + pad * 2}" rx="${bgRx}" ry="${bgRx}" fill="${el.background}"${op}/>`)
+      }
       body.push(`  <text x="${tx}" y="${el.y + el.fontSize}" font-size="${el.fontSize}" font-weight="${el.fontWeight}" font-family="${el.fontFamily}" fill="${el.fill}" text-anchor="${anchor}"${op}>${escaped}</text>`)
     } else if (el.type === 'line') {
       const x2 = el.x + el.width, y2 = el.y + el.height
@@ -214,6 +243,18 @@ function ExportMenu({ disabled }: { disabled: boolean }) {
     setOpen(false)
   }
 
+  const handleCopyMarkdown = async () => {
+    const result = buildSvgString(elements, canvasBg, canvasWidth, canvasHeight)
+    if (!result) return
+    const md = `![Banner](./readmekit-export.svg)`
+    try {
+      await navigator.clipboard.writeText(md)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {}
+    setOpen(false)
+  }
+
   return (
     <div ref={ref} className="relative">
       <button
@@ -255,6 +296,13 @@ function ExportMenu({ disabled }: { disabled: boolean }) {
           >
             <Clipboard size={15} className="text-[#a78bfa]" />
             <span>Copier SVG</span>
+          </button>
+          <button
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#e4e4e7] hover:bg-[#27272a] transition-colors"
+            onClick={handleCopyMarkdown}
+          >
+            <FileText size={15} className="text-[#fb923c]" />
+            <span>Copier Markdown</span>
           </button>
           <div className="h-px bg-[#2e2e33] mx-3 my-1" />
           <button
