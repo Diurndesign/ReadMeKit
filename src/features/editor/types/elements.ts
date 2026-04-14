@@ -10,6 +10,8 @@ export interface BaseElement {
   opacity: number
   locked: boolean
   visible: boolean
+  /** If set, this element belongs to a group with other elements sharing the same groupId */
+  groupId?: string
 }
 
 export interface RectElement extends BaseElement {

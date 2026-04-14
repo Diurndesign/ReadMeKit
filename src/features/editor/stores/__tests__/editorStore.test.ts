@@ -546,3 +546,91 @@ describe('createLineElement factory', () => {
     expect(el.strokeDash).toBe('solid')
   })
 })
+
+// ─── groupSelected / ungroupSelected ─────────────────────────────────────────
+
+describe('groupSelected / ungroupSelected', () => {
+  beforeEach(resetStore)
+
+  it('assigns the same groupId to all selected elements', () => {
+    getState().addElements([rect('r1'), rect('r2'), rect('r3')])
+    useEditorStore.temporal.getState().clear()
+    getState().selectElement('r1')
+    getState().selectElement('r2', true)
+    getState().groupSelected()
+    const r1 = getState().elements.find((e) => e.id === 'r1')!
+    const r2 = getState().elements.find((e) => e.id === 'r2')!
+    const r3 = getState().elements.find((e) => e.id === 'r3')!
+    expect(r1.groupId).toBeDefined()
+    expect(r2.groupId).toBe(r1.groupId)
+    expect(r3.groupId).toBeUndefined()
+  })
+
+  it('does nothing when fewer than 2 elements are selected', () => {
+    getState().addElement(rect('r1'))
+    useEditorStore.temporal.getState().clear()
+    getState().selectElement('r1')
+    getState().groupSelected()
+    expect(getState().elements[0].groupId).toBeUndefined()
+  })
+
+  it('ungroupSelected clears groupId from all members', () => {
+    getState().addElements([rect('r1'), rect('r2')])
+    useEditorStore.temporal.getState().clear()
+    getState().selectElement('r1')
+    getState().selectElement('r2', true)
+    getState().groupSelected()
+    getState().ungroupSelected()
+    expect(getState().elements.every((e) => !e.groupId)).toBe(true)
+  })
+
+  it('ungroupSelected only removes the groups that include selected elements', () => {
+    getState().addElements([rect('r1'), rect('r2'), rect('r3'), rect('r4')])
+    useEditorStore.temporal.getState().clear()
+    // Group r1+r2, then group r3+r4 separately
+    getState().selectElement('r1')
+    getState().selectElement('r2', true)
+    getState().groupSelected()
+    getState().selectElement('r3')
+    getState().selectElement('r4', true)
+    getState().groupSelected()
+    // Now ungroup only the r1/r2 group by selecting one of them
+    getState().selectElement('r1')
+    getState().ungroupSelected()
+    const r1 = getState().elements.find((e) => e.id === 'r1')!
+    const r2 = getState().elements.find((e) => e.id === 'r2')!
+    const r3 = getState().elements.find((e) => e.id === 'r3')!
+    const r4 = getState().elements.find((e) => e.id === 'r4')!
+    expect(r1.groupId).toBeUndefined()
+    expect(r2.groupId).toBeUndefined() // r2 also ungrouped (same group)
+    expect(r3.groupId).toBeDefined()   // r3/r4 group untouched
+    expect(r4.groupId).toBe(r3.groupId)
+  })
+
+  it('paste remaps groupIds so pasted groups are independent', () => {
+    getState().addElements([rect('r1'), rect('r2')])
+    useEditorStore.temporal.getState().clear()
+    getState().selectElement('r1')
+    getState().selectElement('r2', true)
+    getState().groupSelected()
+    getState().copySelected()
+    getState().paste()
+    const origGroupId = getState().elements.find((e) => e.id === 'r1')!.groupId!
+    const pastedEls = getState().elements.slice(2) // the 2 pasted copies
+    expect(pastedEls).toHaveLength(2)
+    const pastedGroupId = pastedEls[0].groupId
+    expect(pastedGroupId).toBeDefined()
+    expect(pastedGroupId).not.toBe(origGroupId) // new groupId, not same as original
+    expect(pastedEls[1].groupId).toBe(pastedGroupId) // both share the same new groupId
+  })
+
+  it('undo restores elements before grouping', () => {
+    getState().addElements([rect('r1'), rect('r2')])
+    useEditorStore.temporal.getState().clear()
+    getState().selectElement('r1')
+    getState().selectElement('r2', true)
+    getState().groupSelected()
+    useEditorStore.temporal.getState().undo()
+    expect(getState().elements.every((e) => !e.groupId)).toBe(true)
+  })
+})

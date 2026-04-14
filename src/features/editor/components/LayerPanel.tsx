@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Square, Circle, Type, Eye, EyeOff, Lock, LockOpen, Trash2, Minus, Image } from 'lucide-react'
+import { Square, Circle, Type, Eye, EyeOff, Lock, LockOpen, Trash2, Minus, Image, Link2 } from 'lucide-react'
 import { useEditorStore } from '../stores/editorStore'
 import { cn } from '@/utils/cn'
 import type { EditorElement } from '../types/elements'
@@ -78,6 +78,12 @@ export function LayerPanel() {
                 )}
                 onClick={() => selectElement(el.id)}
               >
+                {/* Group indicator */}
+                {el.groupId && (
+                  <span title="Groupé" className="shrink-0 text-[#6366f1]/60">
+                    <Link2 size={9} />
+                  </span>
+                )}
                 {/* Type icon */}
                 <span className={cn(
                   'shrink-0',

@@ -5,6 +5,7 @@ import {
   AlignStartVertical, AlignCenterVertical, AlignEndVertical,
   AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround,
+  Group, Ungroup,
 } from 'lucide-react'
 import { useEditorStore } from '../stores/editorStore'
 import { useUIStore } from '../stores/uiStore'
@@ -537,6 +538,8 @@ export function PropertyPanel() {
   const sendBackward = useEditorStore((s) => s.sendBackward)
   const alignElements = useEditorStore((s) => s.alignElements)
   const distributeElements = useEditorStore((s) => s.distributeElements)
+  const groupSelected = useEditorStore((s) => s.groupSelected)
+  const ungroupSelected = useEditorStore((s) => s.ungroupSelected)
 
   const primaryId = selectedIds[selectedIds.length - 1] ?? null
   const selectedElement = elements.find((e) => e.id === primaryId)
@@ -639,6 +642,27 @@ export function PropertyPanel() {
           )}
 
           <Divider />
+
+          {/* Group / Ungroup */}
+          {(() => {
+            const allGrouped = selectedIds.length >= 2 &&
+              (() => {
+                const gid = elements.find((e) => e.id === selectedIds[0])?.groupId
+                return !!gid && selectedIds.every((id) => {
+                  const el = elements.find((e) => e.id === id)
+                  return el?.groupId === gid
+                })
+              })()
+            return (
+              <button
+                onClick={allGrouped ? ungroupSelected : groupSelected}
+                className="w-full h-8 text-xs rounded-lg bg-[#27272a] text-[#a1a1aa] hover:bg-[#3f3f46] hover:text-white transition-colors flex items-center justify-center gap-2 mb-2"
+              >
+                {allGrouped ? <Ungroup size={13} /> : <Group size={13} />}
+                {allGrouped ? 'Dégrouper' : 'Grouper'} ({selectedIds.length})
+              </button>
+            )
+          })()}
 
           <button
             onClick={deleteSelected}

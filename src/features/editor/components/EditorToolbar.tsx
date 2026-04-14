@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import jsPDF from 'jspdf'
 import {
   MousePointer2, Square, Type, Circle, Undo2, Redo2, Grid3X3,
   ZoomIn, ZoomOut, Maximize2, Download, LayoutTemplate, Image, FileCode,
@@ -203,6 +204,36 @@ function useExportPNG() {
   }
 }
 
+function useExportPDF() {
+  const elements = useEditorStore((s) => s.elements)
+  const canvasBg = useUIStore((s) => s.canvasBg)
+  const canvasWidth = useUIStore((s) => s.canvasWidth)
+  const canvasHeight = useUIStore((s) => s.canvasHeight)
+  return () => {
+    const result = buildSvgString(elements, canvasBg, canvasWidth, canvasHeight)
+    if (!result) return
+    const { svg, w, h } = result
+    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const img = new window.Image()
+    img.onload = () => {
+      const scale = 2
+      const canvas = document.createElement('canvas')
+      canvas.width = w * scale
+      canvas.height = h * scale
+      const ctx = canvas.getContext('2d')!
+      ctx.scale(scale, scale)
+      ctx.drawImage(img, 0, 0)
+      URL.revokeObjectURL(url)
+      const orientation = w >= h ? 'l' : 'p'
+      const pdf = new jsPDF({ orientation, unit: 'px', format: [w, h], hotfixes: ['px_scaling'] })
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h)
+      pdf.save('readmekit-export.pdf')
+    }
+    img.src = url
+  }
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 interface ToolButtonProps {
@@ -245,6 +276,7 @@ function ExportMenu({ disabled }: { disabled: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const exportSVG = useExportSVG()
   const exportPNG = useExportPNG()
+  const exportPDF = useExportPDF()
   const elements = useEditorStore((s) => s.elements)
   const canvasBg = useUIStore((s) => s.canvasBg)
   const canvasWidth = useUIStore((s) => s.canvasWidth)
@@ -351,6 +383,14 @@ function ExportMenu({ disabled }: { disabled: boolean }) {
           >
             <Image size={15} className="text-[#71717a]" />
             <span>PNG ×1</span>
+          </button>
+          <div className="h-px bg-[#2e2e33] mx-3 my-1" />
+          <button
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#e4e4e7] hover:bg-[#27272a] transition-colors"
+            onClick={() => { exportPDF(); setOpen(false) }}
+          >
+            <FileText size={15} className="text-[#f87171]" />
+            <span>PDF</span>
           </button>
         </div>
       )}
