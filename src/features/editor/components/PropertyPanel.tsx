@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   Copy, ChevronUp, ChevronDown, X, AlignLeft, AlignCenter, AlignRight,
-  Trash2, Square, Circle, Type, Move, Minus, Image,
+  Trash2, Square, Circle, Type, Move, Minus, Image, Moon,
   AlignStartVertical, AlignCenterVertical, AlignEndVertical,
   AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround,
@@ -119,6 +119,44 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
+/** Dark-mode fill override — shown below any fill ColorInput */
+function DarkFillRow({
+  value,
+  onChange,
+}: {
+  value: string | undefined
+  onChange: (v: string | undefined) => void
+}) {
+  return (
+    <div className="mt-1.5">
+      {value === undefined ? (
+        <button
+          onClick={() => onChange('#ffffff')}
+          className="flex items-center gap-1.5 text-[11px] text-[#52525b] hover:text-[#818cf8] transition-colors"
+        >
+          <Moon size={11} />
+          <span>+ Couleur sombre</span>
+        </button>
+      ) : (
+        <>
+          <div className="flex items-center gap-1 mb-1">
+            <Moon size={11} className="text-[#818cf8] shrink-0" />
+            <span className="text-[10px] text-[#818cf8] font-medium">Mode sombre</span>
+            <button
+              onClick={() => onChange(undefined)}
+              className="ml-auto text-[#52525b] hover:text-[#f87171] transition-colors"
+              title="Supprimer la couleur sombre"
+            >
+              <X size={11} />
+            </button>
+          </div>
+          <ColorInput label="🌙" value={value} onChange={onChange} />
+        </>
+      )}
+    </div>
+  )
+}
+
 function Divider() {
   return <div className="h-px bg-[#2e2e33] my-3" />
 }
@@ -233,6 +271,7 @@ function RectProperties({ element, onUpdate }: { element: RectElement; onUpdate:
           </div>
         </>
       )}
+      <DarkFillRow value={element.darkFill} onChange={(v) => onUpdate({ darkFill: v })} />
       <SectionLabel>Bordure</SectionLabel>
       <ColorInput label="Coul." value={element.stroke === 'transparent' ? '#000000' : element.stroke} onChange={(v) => onUpdate({ stroke: v })} />
       <div className="grid grid-cols-2 gap-1.5 mt-1.5">
@@ -284,6 +323,7 @@ function CircleProperties({ element, onUpdate }: { element: CircleElement; onUpd
           </div>
         </>
       )}
+      <DarkFillRow value={element.darkFill} onChange={(v) => onUpdate({ darkFill: v })} />
       <SectionLabel>Bordure</SectionLabel>
       <ColorInput label="Coul." value={element.stroke === 'transparent' ? '#000000' : element.stroke} onChange={(v) => onUpdate({ stroke: v })} />
       <div className="mt-1.5">
@@ -378,6 +418,7 @@ function TextProperties({ element, onUpdate }: { element: TextElement; onUpdate:
       </div>
       <SectionLabel>Couleur</SectionLabel>
       <ColorInput label="Fill" value={element.fill} onChange={(v) => onUpdate({ fill: v })} />
+      <DarkFillRow value={element.darkFill} onChange={(v) => onUpdate({ darkFill: v })} />
       <SectionLabel>Fond du texte</SectionLabel>
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-xs text-[#71717a]">Activer</span>

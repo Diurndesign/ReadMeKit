@@ -12,6 +12,14 @@ export interface BaseElement {
   visible: boolean
   /** If set, this element belongs to a group with other elements sharing the same groupId */
   groupId?: string
+  /**
+   * Optional fill override for dark mode.
+   * When set, buildSvgString emits a CSS class with
+   * @media(prefers-color-scheme:dark){ .rmk-dk-{id}{ fill: darkFill } }
+   * so the element adapts automatically to the viewer's OS theme.
+   * Applies to rect, circle, and text elements.
+   */
+  darkFill?: string
 }
 
 export interface RectElement extends BaseElement {

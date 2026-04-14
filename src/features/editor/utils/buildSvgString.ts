@@ -1,6 +1,13 @@
 /**
  * Core SVG builder — converts EditorElements into an exportable SVG string.
  * Shared between EditorToolbar (quick exports) and ExportDialog (full export).
+ *
+ * Dark mode support:
+ *  1. Canvas background: opts.darkBg → @media rule on #rmk-bg
+ *  2. Per-element: el.darkFill  → CSS class .rmk-dk-{id} with @media rule
+ *
+ * Both are emitted in a single consolidated <style> block inside <defs>.
+ * GitHub's SVG renderer supports <style> and @media(prefers-color-scheme).
  */
 import { wrapText } from '@/utils/wrapText'
 import type { EditorElement } from '../types/elements'
@@ -9,15 +16,14 @@ const PAD = 20
 
 export interface BuildSvgOptions {
   /**
-   * When set, adds a CSS @media(prefers-color-scheme) rule so the background
-   * rect switches between `canvasBg` (light) and `darkBg` (dark) automatically.
-   * Requires a non-transparent `canvasBg` to have a visible light-mode background.
+   * Adds @media(prefers-color-scheme:dark){#rmk-bg{fill:darkBg}} so the
+   * canvas background switches automatically. Only applied when canvasBg
+   * is also set (non-transparent).
    */
   darkBg?: string
   /**
    * Rasterize TextElements via canvas instead of emitting SVG <text> nodes.
-   * Makes the SVG font-independent (no font required to render), at the cost
-   * of losing vector sharpness at very large zoom levels.
+   * Makes the SVG font-independent at the cost of vector sharpness.
    */
   rasterizeText?: boolean
 }
@@ -73,15 +79,17 @@ export function buildSvgString(
 
   const defs: string[] = []
   const body: string[] = []
+  // All CSS rules collected here → rendered as a single <style> block
+  const styleRules: string[] = []
 
-  // ── Background rect (with optional dark-mode media query) ───────────────────
+  // ── Canvas background ───────────────────────────────────────────────────────
   const lightBg = canvasBg && canvasBg !== 'transparent' ? canvasBg : null
 
   if (opts.darkBg) {
     const lightFill = lightBg ?? 'transparent'
-    defs.unshift(
-      `  <style>@media(prefers-color-scheme:dark){#rmk-bg{fill:${opts.darkBg}}}` +
-      `@media(prefers-color-scheme:light){#rmk-bg{fill:${lightFill}}}</style>`,
+    styleRules.push(
+      `@media(prefers-color-scheme:dark){#rmk-bg{fill:${opts.darkBg}}}` +
+      `@media(prefers-color-scheme:light){#rmk-bg{fill:${lightFill}}}`,
     )
     body.push(`  <rect id="rmk-bg" x="${ox}" y="${oy}" width="${w}" height="${h}" fill="${lightFill}"/>`)
   } else if (lightBg) {
@@ -107,10 +115,19 @@ export function buildSvgString(
         )
         fill = `url(#${gradId})`
       }
-      body.push(...withRotation(
-        [`<rect x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}"${rx} fill="${fill}"${st}${op}/>`],
-        rot, cx, cy,
-      ))
+      if (el.darkFill) {
+        const cls = `rmk-dk-${el.id}`
+        styleRules.push(`.${cls}{fill:${fill}}@media(prefers-color-scheme:dark){.${cls}{fill:${el.darkFill}}}`)
+        body.push(...withRotation(
+          [`<rect class="${cls}" x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}"${rx}${st}${op}/>`],
+          rot, cx, cy,
+        ))
+      } else {
+        body.push(...withRotation(
+          [`<rect x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}"${rx} fill="${fill}"${st}${op}/>`],
+          rot, cx, cy,
+        ))
+      }
 
     } else if (el.type === 'circle') {
       const cx = el.x + el.width / 2, cy = el.y + el.height / 2
@@ -125,10 +142,19 @@ export function buildSvgString(
         )
         fill = `url(#${gradId})`
       }
-      body.push(...withRotation(
-        [`<ellipse cx="${cx}" cy="${cy}" rx="${el.width / 2}" ry="${el.height / 2}" fill="${fill}"${st}${op}/>`],
-        rot, cx, cy,
-      ))
+      if (el.darkFill) {
+        const cls = `rmk-dk-${el.id}`
+        styleRules.push(`.${cls}{fill:${fill}}@media(prefers-color-scheme:dark){.${cls}{fill:${el.darkFill}}}`)
+        body.push(...withRotation(
+          [`<ellipse class="${cls}" cx="${cx}" cy="${cy}" rx="${el.width / 2}" ry="${el.height / 2}"${st}${op}/>`],
+          rot, cx, cy,
+        ))
+      } else {
+        body.push(...withRotation(
+          [`<ellipse cx="${cx}" cy="${cy}" rx="${el.width / 2}" ry="${el.height / 2}" fill="${fill}"${st}${op}/>`],
+          rot, cx, cy,
+        ))
+      }
 
     } else if (el.type === 'text') {
       const cx = el.x + el.width / 2, cy = el.y + el.height / 2
@@ -136,7 +162,7 @@ export function buildSvgString(
       const lineHeight = el.fontSize * 1.3
 
       if (opts.rasterizeText) {
-        // ── Text → canvas PNG (font-independent, slightly lossy at high zoom) ─
+        // ── Text → canvas PNG ─────────────────────────────────────────────────
         const scale = 2
         const totalH = Math.max(el.height, lines.length * lineHeight + el.fontSize * 0.3)
         const canvas = document.createElement('canvas')
@@ -165,10 +191,7 @@ export function buildSvgString(
         const tx =
           el.textAlign === 'center' ? el.width / 2 :
           el.textAlign === 'right'  ? el.width : 0
-
-        lines.forEach((line, i) => {
-          ctx.fillText(line, tx, el.fontSize + i * lineHeight)
-        })
+        lines.forEach((line, i) => ctx.fillText(line, tx, el.fontSize + i * lineHeight))
 
         const dataUrl = canvas.toDataURL('image/png')
         body.push(...withRotation(
@@ -176,10 +199,11 @@ export function buildSvgString(
           rot, cx, cy,
         ))
       } else {
-        // ── Standard SVG <text> ────────────────────────────────────────────────
+        // ── Standard SVG <text> ───────────────────────────────────────────────
         const anchor = el.textAlign === 'center' ? 'middle' : el.textAlign === 'right' ? 'end' : 'start'
         const tx = el.textAlign === 'center' ? cx : el.textAlign === 'right' ? el.x + el.width : el.x
         const innerLines: string[] = []
+
         if (el.background) {
           const pad = el.bgPadding ?? 4
           const bgRx = el.bgRadius ?? 4
@@ -189,14 +213,26 @@ export function buildSvgString(
             ` rx="${bgRx}" ry="${bgRx}" fill="${el.background}"${op}/>`,
           )
         }
+
         const tspans = lines.map((line, i) => {
           const escaped = (line || ' ').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
           return `    <tspan x="${tx}" y="${el.y + el.fontSize + i * lineHeight}">${escaped}</tspan>`
         }).join('\n')
-        innerLines.push(
-          `<text font-size="${el.fontSize}" font-weight="${el.fontWeight}" font-family="${el.fontFamily}"` +
-          ` fill="${el.fill}" text-anchor="${anchor}"${op}>\n${tspans}\n  </text>`,
-        )
+
+        if (el.darkFill) {
+          const cls = `rmk-dk-${el.id}`
+          styleRules.push(`.${cls}{fill:${el.fill}}@media(prefers-color-scheme:dark){.${cls}{fill:${el.darkFill}}}`)
+          innerLines.push(
+            `<text class="${cls}" font-size="${el.fontSize}" font-weight="${el.fontWeight}"` +
+            ` font-family="${el.fontFamily}" text-anchor="${anchor}"${op}>\n${tspans}\n  </text>`,
+          )
+        } else {
+          innerLines.push(
+            `<text font-size="${el.fontSize}" font-weight="${el.fontWeight}" font-family="${el.fontFamily}"` +
+            ` fill="${el.fill}" text-anchor="${anchor}"${op}>\n${tspans}\n  </text>`,
+          )
+        }
+
         body.push(...withRotation(innerLines, rot, cx, cy))
       }
 
@@ -226,6 +262,11 @@ export function buildSvgString(
         rot, cx, cy,
       ))
     }
+  }
+
+  // ── Consolidate <style> block ────────────────────────────────────────────────
+  if (styleRules.length > 0) {
+    defs.unshift(`  <style>${styleRules.join('')}</style>`)
   }
 
   const defsBlock = defs.length ? `  <defs>\n${defs.join('\n')}\n  </defs>` : ''
