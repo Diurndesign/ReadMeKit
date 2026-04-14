@@ -38,6 +38,7 @@ export function LayerPanel() {
 
   // Drag-and-drop state
   const dragId = useRef<string | null>(null)
+  const dropPositionRef = useRef<'above' | 'below' | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const [dropPosition, setDropPosition] = useState<'above' | 'below' | null>(null)
 
@@ -72,33 +73,42 @@ export function LayerPanel() {
     e.dataTransfer.dropEffect = 'move'
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
     const midY = rect.top + rect.height / 2
+    const pos = e.clientY < midY ? 'above' : 'below'
+    dropPositionRef.current = pos   // ref = toujours à jour dans handleDrop
     setDragOverId(id)
-    setDropPosition(e.clientY < midY ? 'above' : 'below')
+    setDropPosition(pos)            // state = seulement pour l'affichage
   }
 
   const handleDrop = (e: React.DragEvent, targetId: string) => {
     e.preventDefault()
     const sourceId = dragId.current
     if (!sourceId || sourceId === targetId) {
-      setDragOverId(null); setDropPosition(null)
+      setDragOverId(null); setDropPosition(null); dropPositionRef.current = null
       return
     }
 
-    // reversed[] is top-to-bottom in the panel (highest z first)
-    // elements[] is bottom-to-top (lowest z first, highest z last)
+    // Recalculer la position directement depuis l'événement pour éviter le state périmé
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const midY = rect.top + rect.height / 2
+    const pos = dropPositionRef.current ?? (e.clientY < midY ? 'above' : 'below')
+
+    // reversed[] : top-to-bottom dans le panel (z le plus haut en premier)
+    // elements[] : bottom-to-top (z le plus bas en premier, z le plus haut en dernier)
     const targetOriginalIdx = elements.findIndex((el) => el.id === targetId)
-    const adjustedIdx = dropPosition === 'above'
-      ? targetOriginalIdx + 1   // above in panel = higher z = larger index in elements[]
-      : targetOriginalIdx        // below in panel = lower z
+    const adjustedIdx = pos === 'above'
+      ? targetOriginalIdx + 1   // au-dessus dans le panel = z plus haut = index plus grand
+      : targetOriginalIdx        // en-dessous = z plus bas
 
     reorderElement(sourceId, adjustedIdx)
     setDragOverId(null)
     setDropPosition(null)
+    dropPositionRef.current = null
     dragId.current = null
   }
 
   const handleDragEnd = () => {
     dragId.current = null
+    dropPositionRef.current = null
     setDragOverId(null)
     setDropPosition(null)
   }

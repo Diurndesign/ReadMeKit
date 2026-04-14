@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import {
-  Copy, ChevronUp, ChevronDown, X, AlignLeft, AlignCenter, AlignRight,
+  Copy, X, AlignLeft, AlignCenter, AlignRight,
   Trash2, Square, Circle, Type, Move, Minus, Image, Moon,
   AlignStartVertical, AlignCenterVertical, AlignEndVertical,
   AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
@@ -575,8 +575,6 @@ export function PropertyPanel() {
   const deleteSelected = useEditorStore((s) => s.deleteSelected)
   const duplicateElement = useEditorStore((s) => s.duplicateElement)
   const clearSelection = useEditorStore((s) => s.clearSelection)
-  const bringForward = useEditorStore((s) => s.bringForward)
-  const sendBackward = useEditorStore((s) => s.sendBackward)
   const alignElements = useEditorStore((s) => s.alignElements)
   const distributeElements = useEditorStore((s) => s.distributeElements)
   const groupSelected = useEditorStore((s) => s.groupSelected)
@@ -746,20 +744,6 @@ export function PropertyPanel() {
               className="w-7 h-7 flex items-center justify-center rounded text-[#71717a] hover:text-white hover:bg-[#27272a] transition-colors"
             >
               <Copy size={13} />
-            </button>
-            <button
-              onClick={() => bringForward(selectedElement.id)}
-              title="Avancer d'un calque"
-              className="w-7 h-7 flex items-center justify-center rounded text-[#71717a] hover:text-white hover:bg-[#27272a] transition-colors"
-            >
-              <ChevronUp size={14} />
-            </button>
-            <button
-              onClick={() => sendBackward(selectedElement.id)}
-              title="Reculer d'un calque"
-              className="w-7 h-7 flex items-center justify-center rounded text-[#71717a] hover:text-white hover:bg-[#27272a] transition-colors"
-            >
-              <ChevronDown size={14} />
             </button>
           </div>
         </div>
