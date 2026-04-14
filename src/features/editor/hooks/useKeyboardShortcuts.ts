@@ -4,8 +4,10 @@ import { useUIStore } from '../stores/uiStore'
 
 export function useKeyboardShortcuts() {
   const deleteElement = useEditorStore((s) => s.deleteElement)
+  const duplicateElement = useEditorStore((s) => s.duplicateElement)
   const selectedId = useEditorStore((s) => s.selectedId)
   const setActiveTool = useUIStore((s) => s.setActiveTool)
+  const resetView = useUIStore((s) => s.resetView)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -19,6 +21,12 @@ export function useKeyboardShortcuts() {
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
         e.preventDefault()
         deleteElement(selectedId)
+      }
+
+      // Ctrl+D -> duplicate selected element
+      if ((e.metaKey || e.ctrlKey) && e.key === 'd' && selectedId) {
+        e.preventDefault()
+        duplicateElement(selectedId)
       }
 
       // Ctrl+Z -> undo
@@ -39,6 +47,12 @@ export function useKeyboardShortcuts() {
         useEditorStore.temporal.getState().redo()
       }
 
+      // Ctrl+0 -> reset view
+      if ((e.metaKey || e.ctrlKey) && e.key === '0') {
+        e.preventDefault()
+        resetView()
+      }
+
       // V -> select tool
       if (e.key === 'v' || e.key === 'V') {
         setActiveTool('select')
@@ -54,6 +68,11 @@ export function useKeyboardShortcuts() {
         setActiveTool('text')
       }
 
+      // O -> circle tool
+      if (e.key === 'o' || e.key === 'O') {
+        setActiveTool('circle')
+      }
+
       // Escape -> deselect
       if (e.key === 'Escape') {
         useEditorStore.getState().selectElement(null)
@@ -63,5 +82,5 @@ export function useKeyboardShortcuts() {
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [selectedId, deleteElement, setActiveTool])
+  }, [selectedId, deleteElement, duplicateElement, setActiveTool, resetView])
 }

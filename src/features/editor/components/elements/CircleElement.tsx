@@ -1,36 +1,38 @@
 import { useResizeElement, CURSOR_MAP, type ResizeHandle } from '../../hooks/useResizeElement'
-import type { RectElement as RectElementType } from '../../types/elements'
+import type { CircleElement as CircleElementType } from '../../types/elements'
 
 interface Props {
-  element: RectElementType
+  element: CircleElementType
   isSelected: boolean
   onPointerDown: (e: React.PointerEvent) => void
 }
 
-export function RectElementSVG({ element, isSelected, onPointerDown }: Props) {
+export function CircleElementSVG({ element, isSelected, onPointerDown }: Props) {
   const { handleResizeStart } = useResizeElement()
   const { x, y, width: w, height: h } = element
+  const cx = x + w / 2
+  const cy = y + h / 2
+  const rx = w / 2
+  const ry = h / 2
 
-  const handles: { handle: ResizeHandle; cx: number; cy: number }[] = [
-    { handle: 'nw', cx: x, cy: y },
-    { handle: 'n', cx: x + w / 2, cy: y },
-    { handle: 'ne', cx: x + w, cy: y },
-    { handle: 'e', cx: x + w, cy: y + h / 2 },
-    { handle: 'se', cx: x + w, cy: y + h },
-    { handle: 's', cx: x + w / 2, cy: y + h },
-    { handle: 'sw', cx: x, cy: y + h },
-    { handle: 'w', cx: x, cy: y + h / 2 },
+  const cornerHandles: { handle: ResizeHandle; hx: number; hy: number }[] = [
+    { handle: 'nw', hx: x, hy: y },
+    { handle: 'ne', hx: x + w, hy: y },
+    { handle: 'se', hx: x + w, hy: y + h },
+    { handle: 'sw', hx: x, hy: y + h },
+    { handle: 'n', hx: x + w / 2, hy: y },
+    { handle: 's', hx: x + w / 2, hy: y + h },
+    { handle: 'e', hx: x + w, hy: y + h / 2 },
+    { handle: 'w', hx: x, hy: y + h / 2 },
   ]
 
   return (
     <g onPointerDown={onPointerDown} style={{ cursor: 'move', opacity: element.opacity }}>
-      <rect
-        x={x}
-        y={y}
-        width={w}
-        height={h}
-        rx={element.cornerRadius}
-        ry={element.cornerRadius}
+      <ellipse
+        cx={cx}
+        cy={cy}
+        rx={rx}
+        ry={ry}
         fill={element.fill}
         stroke={element.stroke}
         strokeWidth={element.strokeWidth}
@@ -42,19 +44,17 @@ export function RectElementSVG({ element, isSelected, onPointerDown }: Props) {
             y={y - 1}
             width={w + 2}
             height={h + 2}
-            rx={element.cornerRadius}
-            ry={element.cornerRadius}
             fill="none"
             stroke="#6366f1"
-            strokeWidth={2}
+            strokeWidth={1.5}
             strokeDasharray="6 3"
             pointerEvents="none"
           />
-          {handles.map(({ handle, cx, cy }) => (
+          {cornerHandles.map(({ handle, hx, hy }) => (
             <circle
               key={handle}
-              cx={cx}
-              cy={cy}
+              cx={hx}
+              cy={hy}
               r={4}
               fill="white"
               stroke="#6366f1"

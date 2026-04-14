@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { temporal } from 'zundo'
 import type { EditorElement } from '../types/elements'
+import { generateId } from '@/utils/generateId'
 
 interface EditorState {
   elements: EditorElement[]
@@ -15,6 +16,7 @@ interface EditorState {
   moveElement: (id: string, x: number, y: number) => void
   bringForward: (id: string) => void
   sendBackward: (id: string) => void
+  duplicateElement: (id: string) => void
 }
 
 export const useEditorStore = create<EditorState>()(
@@ -71,6 +73,15 @@ export const useEditorStore = create<EditorState>()(
             const [el] = state.elements.splice(idx, 1)
             state.elements.splice(idx - 1, 0, el)
           }
+        }),
+
+      duplicateElement: (id) =>
+        set((state) => {
+          const el = state.elements.find((e) => e.id === id)
+          if (!el) return
+          const newEl = { ...el, id: generateId(), x: el.x + 20, y: el.y + 20 }
+          state.elements.push(newEl)
+          state.selectedId = newEl.id
         }),
     })),
     { limit: 50 }
