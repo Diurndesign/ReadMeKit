@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import {
   Copy, X, AlignLeft, AlignCenter, AlignRight,
-  Trash2, Square, Circle, Type, Minus, Image, Moon,
+  Trash2, Square, Circle, Type, Move, Minus, Image, Moon,
   AlignStartVertical, AlignCenterVertical, AlignEndVertical,
   AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround,
