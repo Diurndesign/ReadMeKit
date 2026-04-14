@@ -1,64 +1,100 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { useEditorStore } from '../stores/editorStore'
 import { useUIStore } from '../stores/uiStore'
 import { useDragElement } from '../hooks/useDragElement'
 import { ElementRenderer } from './ElementRenderer'
 import { createRectElement, createTextElement, createCircleElement } from '../types/elements'
+import type { TextElement } from '../types/elements'
 import { generateId } from '@/utils/generateId'
 import { Square, Type, Circle } from 'lucide-react'
 
-function EmptyCanvasHint() {
-  const setActiveTool = useUIStore((s) => s.setActiveTool)
+// ─── Inline text editing overlay ────────────────────────────────────────────
+
+interface TextOverlayProps {
+  element: TextElement
+  svgRef: React.RefObject<SVGSVGElement | null>
+  zoom: number
+  panOffset: { x: number; y: number }
+}
+
+function TextEditingOverlay({ element, svgRef, zoom, panOffset }: TextOverlayProps) {
+  const setEditingId = useUIStore((s) => s.setEditingId)
+  const updateElement = useEditorStore((s) => s.updateElement)
+  const [value, setValue] = useState(element.content)
+  const ref = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    ref.current?.focus()
+    ref.current?.select()
+  }, [])
+
+  const svgRect = svgRef.current?.getBoundingClientRect() ?? { left: 0, top: 0 }
+  const sx = svgRect.left + (element.x - panOffset.x) * zoom
+  const sy = svgRect.top + (element.y - panOffset.y) * zoom
+  const sw = element.width * zoom
+  const sh = Math.max(element.height, element.fontSize * 1.4) * zoom
+
+  const commit = () => {
+    updateElement(element.id, { content: value })
+    setEditingId(null)
+  }
 
   return (
-    <div
-      className="absolute inset-0 flex items-center justify-center pointer-events-none"
-      style={{ zIndex: 1 }}
-    >
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') { setEditingId(null); return }
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commit() }
+        e.stopPropagation()
+      }}
+      style={{
+        position: 'fixed',
+        left: sx,
+        top: sy,
+        width: sw,
+        minHeight: sh,
+        fontSize: element.fontSize * zoom,
+        fontWeight: element.fontWeight,
+        fontFamily: element.fontFamily,
+        color: element.fill,
+        textAlign: element.textAlign,
+        background: 'rgba(15,15,17,0.85)',
+        border: '2px solid #6366f1',
+        borderRadius: 4,
+        padding: '2px 4px',
+        margin: 0,
+        outline: 'none',
+        resize: 'none',
+        lineHeight: 1.2,
+        zIndex: 100,
+        caretColor: element.fill,
+        overflow: 'hidden',
+        boxSizing: 'border-box',
+      }}
+    />
+  )
+}
+
+// ─── Empty canvas hint ───────────────────────────────────────────────────────
+
+function EmptyCanvasHint() {
+  const setActiveTool = useUIStore((s) => s.setActiveTool)
+  return (
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 1 }}>
       <div className="text-center pointer-events-auto">
-        <div
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: 16,
-            background: 'linear-gradient(135deg, #6366f1 0%, #818cf8 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 20px',
-            boxShadow: '0 0 40px rgba(99,102,241,0.2)',
-          }}
-        >
+        <div style={{ width: 56, height: 56, borderRadius: 16, background: 'linear-gradient(135deg, #6366f1 0%, #818cf8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: '0 0 40px rgba(99,102,241,0.2)' }}>
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="3" />
             <path d="M7 8h10M7 12h6M7 16h8" />
           </svg>
         </div>
-
-        <h2
-          style={{
-            fontSize: 20,
-            fontWeight: 700,
-            color: '#e4e4e7',
-            margin: '0 0 8px',
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-          }}
-        >
-          Ton canvas est vide
-        </h2>
-        <p
-          style={{
-            fontSize: 14,
-            color: '#71717a',
-            margin: '0 0 28px',
-            maxWidth: 320,
-            lineHeight: 1.5,
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-          }}
-        >
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: '#e4e4e7', margin: '0 0 8px', fontFamily: 'system-ui,sans-serif' }}>Ton canvas est vide</h2>
+        <p style={{ fontSize: 14, color: '#71717a', margin: '0 0 28px', maxWidth: 320, lineHeight: 1.5, fontFamily: 'system-ui,sans-serif' }}>
           Commence par ajouter un élément avec les boutons ci-dessous ou les raccourcis clavier.
         </p>
-
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
           {[
             { tool: 'rect' as const, icon: <Square size={16} />, label: 'Rectangle', shortcut: 'R' },
@@ -68,51 +104,20 @@ function EmptyCanvasHint() {
             <button
               key={tool}
               onClick={() => setActiveTool(tool)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '10px 20px',
-                background: '#18181b',
-                border: '1px solid #2e2e33',
-                borderRadius: 10,
-                color: '#a1a1aa',
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#6366f1'
-                e.currentTarget.style.color = '#e4e4e7'
-                e.currentTarget.style.background = '#1c1c20'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = '#2e2e33'
-                e.currentTarget.style.color = '#a1a1aa'
-                e.currentTarget.style.background = '#18181b'
-              }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', background: '#18181b', border: '1px solid #2e2e33', borderRadius: 10, color: '#a1a1aa', fontSize: 13, fontWeight: 500, cursor: 'pointer', transition: 'all 0.15s ease', fontFamily: 'system-ui,sans-serif' }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#6366f1'; e.currentTarget.style.color = '#e4e4e7' }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2e2e33'; e.currentTarget.style.color = '#a1a1aa' }}
             >
-              {icon}
-              {label}
+              {icon}{label}
               <span style={{ fontSize: 11, color: '#52525b', background: '#27272a', padding: '1px 6px', borderRadius: 4 }}>{shortcut}</span>
             </button>
           ))}
         </div>
-
-        <p
-          style={{
-            fontSize: 12,
-            color: '#3f3f46',
-            marginTop: 20,
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-          }}
-        >
-          <span style={{ color: '#52525b' }}>V</span> select &nbsp;&middot;&nbsp;
-          <span style={{ color: '#52525b' }}>R</span> rect &nbsp;&middot;&nbsp;
-          <span style={{ color: '#52525b' }}>T</span> texte &nbsp;&middot;&nbsp;
-          <span style={{ color: '#52525b' }}>O</span> cercle &nbsp;&middot;&nbsp;
+        <p style={{ fontSize: 12, color: '#3f3f46', marginTop: 20, fontFamily: 'system-ui,sans-serif' }}>
+          <span style={{ color: '#52525b' }}>V</span> select &nbsp;·&nbsp;
+          <span style={{ color: '#52525b' }}>R</span> rect &nbsp;·&nbsp;
+          <span style={{ color: '#52525b' }}>T</span> texte &nbsp;·&nbsp;
+          <span style={{ color: '#52525b' }}>O</span> cercle &nbsp;·&nbsp;
           <span style={{ color: '#52525b' }}>Ctrl+Z</span> annuler
         </p>
       </div>
@@ -120,10 +125,13 @@ function EmptyCanvasHint() {
   )
 }
 
+// ─── EditorCanvas ────────────────────────────────────────────────────────────
+
 export function EditorCanvas() {
   const elements = useEditorStore((s) => s.elements)
-  const selectedId = useEditorStore((s) => s.selectedId)
-  const selectElement = useEditorStore((s) => s.selectElement)
+  const selectedIds = useEditorStore((s) => s.selectedIds)
+  const selectElements = useEditorStore((s) => s.selectElements)
+  const clearSelection = useEditorStore((s) => s.clearSelection)
   const addElement = useEditorStore((s) => s.addElement)
   const activeTool = useUIStore((s) => s.activeTool)
   const setActiveTool = useUIStore((s) => s.setActiveTool)
@@ -132,13 +140,24 @@ export function EditorCanvas() {
   const setZoom = useUIStore((s) => s.setZoom)
   const panOffset = useUIStore((s) => s.panOffset)
   const setPanOffset = useUIStore((s) => s.setPanOffset)
+  const editingId = useUIStore((s) => s.editingId)
   const { handlePointerDown } = useDragElement()
 
   const svgRef = useRef<SVGSVGElement>(null)
+  const spaceHeld = useRef(false)
   const isPanning = useRef(false)
   const panStart = useRef({ x: 0, y: 0 })
   const panStartOffset = useRef({ x: 0, y: 0 })
-  const spaceHeld = useRef(false)
+
+  // Marquee selection state
+  const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
+  const marqueeStart = useRef<{ x: number; y: number } | null>(null)
+  const isDraggingMarquee = useRef(false)
+
+  // The text element being edited inline
+  const editingElement = editingId
+    ? (elements.find((e) => e.id === editingId) as TextElement | undefined)
+    : undefined
 
   // Space key for pan mode
   useEffect(() => {
@@ -159,35 +178,23 @@ export function EditorCanvas() {
     }
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
-    return () => {
-      window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('keyup', onKeyUp)
-    }
+    return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp) }
   }, [])
 
-  // Ctrl+wheel to zoom centered on cursor
-  const handleWheel = useCallback(
-    (e: WheelEvent) => {
-      if (!(e.ctrlKey || e.metaKey)) return
-      e.preventDefault()
-
-      const factor = e.deltaY < 0 ? 1.1 : 0.9
-      const newZoom = Math.max(0.1, Math.min(5, zoom * factor))
-
-      const rect = svgRef.current!.getBoundingClientRect()
-      const mouseX = e.clientX - rect.left
-      const mouseY = e.clientY - rect.top
-
-      // Keep the canvas point under cursor fixed:
-      // canvasX = mouseX/zoom + panOffset.x = mouseX/newZoom + newPanX
-      const newPanX = mouseX / zoom + panOffset.x - mouseX / newZoom
-      const newPanY = mouseY / zoom + panOffset.y - mouseY / newZoom
-
-      setZoom(newZoom)
-      setPanOffset({ x: newPanX, y: newPanY })
-    },
-    [zoom, panOffset, setZoom, setPanOffset]
-  )
+  // Ctrl+wheel zoom centered on cursor
+  const handleWheel = useCallback((e: WheelEvent) => {
+    if (!(e.ctrlKey || e.metaKey)) return
+    e.preventDefault()
+    const factor = e.deltaY < 0 ? 1.1 : 0.9
+    const newZoom = Math.max(0.1, Math.min(5, zoom * factor))
+    const rect = svgRef.current!.getBoundingClientRect()
+    const mx = e.clientX - rect.left
+    const my = e.clientY - rect.top
+    const newPanX = mx / zoom + panOffset.x - mx / newZoom
+    const newPanY = my / zoom + panOffset.y - my / newZoom
+    setZoom(newZoom)
+    setPanOffset({ x: newPanX, y: newPanY })
+  }, [zoom, panOffset, setZoom, setPanOffset])
 
   useEffect(() => {
     const svg = svgRef.current
@@ -196,12 +203,11 @@ export function EditorCanvas() {
     return () => svg.removeEventListener('wheel', handleWheel)
   }, [handleWheel])
 
-  // Convert screen coordinates to canvas coordinates
   const screenToCanvas = (clientX: number, clientY: number) => {
     const rect = svgRef.current!.getBoundingClientRect()
     return {
-      x: Math.round((clientX - rect.left) / zoom + panOffset.x),
-      y: Math.round((clientY - rect.top) / zoom + panOffset.y),
+      x: (clientX - rect.left) / zoom + panOffset.x,
+      y: (clientY - rect.top) / zoom + panOffset.y,
     }
   }
 
@@ -217,47 +223,96 @@ export function EditorCanvas() {
       return
     }
 
-    // Only handle direct clicks on the SVG background (not on elements)
+    // Only handle direct SVG background clicks
     if (e.target !== e.currentTarget) return
 
     const { x, y } = screenToCanvas(e.clientX, e.clientY)
 
     if (activeTool === 'rect') {
-      addElement(createRectElement({ id: generateId(), x: x - 100, y: y - 60 }))
+      addElement(createRectElement({ id: generateId(), x: Math.round(x - 100), y: Math.round(y - 60) }))
       setActiveTool('select')
     } else if (activeTool === 'text') {
-      addElement(createTextElement({ id: generateId(), x: x - 100, y: y - 20 }))
+      addElement(createTextElement({ id: generateId(), x: Math.round(x - 100), y: Math.round(y - 20) }))
       setActiveTool('select')
     } else if (activeTool === 'circle') {
-      addElement(createCircleElement({ id: generateId(), x: x - 60, y: y - 60 }))
+      addElement(createCircleElement({ id: generateId(), x: Math.round(x - 60), y: Math.round(y - 60) }))
       setActiveTool('select')
     } else {
-      selectElement(null)
+      // Begin marquee selection
+      marqueeStart.current = { x, y }
+      isDraggingMarquee.current = false
+      ;(e.target as Element).setPointerCapture(e.pointerId)
     }
   }
 
   const handleSvgPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (!isPanning.current) return
-    const dx = (e.clientX - panStart.current.x) / zoom
-    const dy = (e.clientY - panStart.current.y) / zoom
-    setPanOffset({
-      x: panStartOffset.current.x - dx,
-      y: panStartOffset.current.y - dy,
-    })
-  }
-
-  const handleSvgPointerUp = () => {
     if (isPanning.current) {
-      isPanning.current = false
-      if (svgRef.current) svgRef.current.style.cursor = spaceHeld.current ? 'grab' : ''
+      const dx = (e.clientX - panStart.current.x) / zoom
+      const dy = (e.clientY - panStart.current.y) / zoom
+      setPanOffset({ x: panStartOffset.current.x - dx, y: panStartOffset.current.y - dy })
+      return
+    }
+
+    if (marqueeStart.current) {
+      const { x, y } = screenToCanvas(e.clientX, e.clientY)
+      const dx = x - marqueeStart.current.x
+      const dy = y - marqueeStart.current.y
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+        isDraggingMarquee.current = true
+        setMarquee({
+          x: Math.min(x, marqueeStart.current.x),
+          y: Math.min(y, marqueeStart.current.y),
+          w: Math.abs(dx),
+          h: Math.abs(dy),
+        })
+      }
     }
   }
 
-  // The <g> transform maps canvas coordinates to screen coordinates:
-  // screen = (canvas - panOffset) * zoom
-  const groupTransform = `scale(${zoom}) translate(${-panOffset.x}, ${-panOffset.y})`
+  const handleSvgPointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (isPanning.current) {
+      isPanning.current = false
+      if (svgRef.current) svgRef.current.style.cursor = spaceHeld.current ? 'grab' : ''
+      return
+    }
+
+    if (marqueeStart.current) {
+      if (isDraggingMarquee.current && marquee) {
+        const { x, y, w, h } = marquee
+        const hit = elements.filter(
+          (el) => el.x < x + w && el.x + el.width > x && el.y < y + h && el.y + el.height > y
+        )
+        if (e.shiftKey) {
+          const current = useEditorStore.getState().selectedIds
+          const merged = Array.from(new Set([...current, ...hit.map((el) => el.id)]))
+          selectElements(merged)
+        } else {
+          selectElements(hit.map((el) => el.id))
+        }
+      } else {
+        // Plain click on empty canvas
+        clearSelection()
+      }
+      marqueeStart.current = null
+      isDraggingMarquee.current = false
+      setMarquee(null)
+    }
+  }
+
+  // Multi-selection bounding box
+  const selectedElements = elements.filter((e) => selectedIds.includes(e.id))
+  const showMultiBoundingBox = selectedIds.length > 1 && selectedElements.length > 1
+  let multiBBox = { x: 0, y: 0, w: 0, h: 0 }
+  if (showMultiBoundingBox) {
+    const minX = Math.min(...selectedElements.map((e) => e.x))
+    const minY = Math.min(...selectedElements.map((e) => e.y))
+    const maxX = Math.max(...selectedElements.map((e) => e.x + e.width))
+    const maxY = Math.max(...selectedElements.map((e) => e.y + e.height))
+    multiBBox = { x: minX - 6, y: minY - 6, w: maxX - minX + 12, h: maxY - minY + 12 }
+  }
 
   const cursorStyle = activeTool !== 'select' ? 'crosshair' : 'default'
+  const groupTransform = `scale(${zoom}) translate(${-panOffset.x}, ${-panOffset.y})`
 
   return (
     <div data-onboarding="canvas" className="flex-1 overflow-hidden relative" style={{ background: '#0f0f11' }}>
@@ -273,7 +328,7 @@ export function EditorCanvas() {
         onPointerUp={handleSvgPointerUp}
       >
         <g transform={groupTransform}>
-          {/* Grid — large rect covers all reachable canvas area */}
+          {/* Grid */}
           {showGrid && (
             <>
               <defs>
@@ -294,14 +349,40 @@ export function EditorCanvas() {
             <ElementRenderer
               key={element.id}
               element={element}
-              isSelected={element.id === selectedId}
-              onPointerDown={(e) =>
-                handlePointerDown(e, element.id, element.x, element.y)
-              }
+              isSelected={selectedIds.includes(element.id)}
+              onPointerDown={(e) => handlePointerDown(e, element.id, element.x, element.y)}
             />
           ))}
+
+          {/* Multi-selection bounding box */}
+          {showMultiBoundingBox && (
+            <rect
+              x={multiBBox.x} y={multiBBox.y} width={multiBBox.w} height={multiBBox.h}
+              fill="none" stroke="#6366f1" strokeWidth={1} strokeDasharray="6 3"
+              pointerEvents="none"
+            />
+          )}
+
+          {/* Marquee selection rect */}
+          {marquee && (
+            <rect
+              x={marquee.x} y={marquee.y} width={marquee.w} height={marquee.h}
+              fill="rgba(99,102,241,0.08)" stroke="#6366f1" strokeWidth={1} strokeDasharray="4 2"
+              pointerEvents="none"
+            />
+          )}
         </g>
       </svg>
+
+      {/* Inline text editing overlay */}
+      {editingElement && editingElement.type === 'text' && (
+        <TextEditingOverlay
+          element={editingElement}
+          svgRef={svgRef}
+          zoom={zoom}
+          panOffset={panOffset}
+        />
+      )}
     </div>
   )
 }

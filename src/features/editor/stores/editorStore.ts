@@ -6,14 +6,18 @@ import { generateId } from '@/utils/generateId'
 
 interface EditorState {
   elements: EditorElement[]
-  selectedId: string | null
+  selectedIds: string[]
 
-  // Actions
   addElement: (element: EditorElement) => void
-  selectElement: (id: string | null) => void
+  addElements: (elements: EditorElement[]) => void
+  selectElement: (id: string | null, addToSelection?: boolean) => void
+  selectElements: (ids: string[]) => void
+  clearSelection: () => void
   updateElement: (id: string, updates: Partial<EditorElement>) => void
   deleteElement: (id: string) => void
+  deleteSelected: () => void
   moveElement: (id: string, x: number, y: number) => void
+  batchMoveElements: (moves: { id: string; x: number; y: number }[]) => void
   bringForward: (id: string) => void
   sendBackward: (id: string) => void
   duplicateElement: (id: string) => void
@@ -23,17 +27,44 @@ export const useEditorStore = create<EditorState>()(
   temporal(
     immer((set) => ({
       elements: [],
-      selectedId: null,
+      selectedIds: [],
 
       addElement: (element) =>
         set((state) => {
           state.elements.push(element)
-          state.selectedId = element.id
+          state.selectedIds = [element.id]
         }),
 
-      selectElement: (id) =>
+      addElements: (elements) =>
         set((state) => {
-          state.selectedId = id
+          state.elements.push(...elements)
+          state.selectedIds = elements.map((e) => e.id)
+        }),
+
+      selectElement: (id, addToSelection = false) =>
+        set((state) => {
+          if (id === null) {
+            state.selectedIds = []
+          } else if (addToSelection) {
+            const idx = state.selectedIds.indexOf(id)
+            if (idx >= 0) {
+              state.selectedIds.splice(idx, 1)
+            } else {
+              state.selectedIds.push(id)
+            }
+          } else {
+            state.selectedIds = [id]
+          }
+        }),
+
+      selectElements: (ids) =>
+        set((state) => {
+          state.selectedIds = ids
+        }),
+
+      clearSelection: () =>
+        set((state) => {
+          state.selectedIds = []
         }),
 
       updateElement: (id, updates) =>
@@ -45,15 +76,26 @@ export const useEditorStore = create<EditorState>()(
       deleteElement: (id) =>
         set((state) => {
           state.elements = state.elements.filter((e) => e.id !== id)
-          if (state.selectedId === id) state.selectedId = null
+          state.selectedIds = state.selectedIds.filter((sid) => sid !== id)
+        }),
+
+      deleteSelected: () =>
+        set((state) => {
+          state.elements = state.elements.filter((e) => !state.selectedIds.includes(e.id))
+          state.selectedIds = []
         }),
 
       moveElement: (id, x, y) =>
         set((state) => {
           const el = state.elements.find((e) => e.id === id)
-          if (el) {
-            el.x = x
-            el.y = y
+          if (el) { el.x = x; el.y = y }
+        }),
+
+      batchMoveElements: (moves) =>
+        set((state) => {
+          for (const { id, x, y } of moves) {
+            const el = state.elements.find((e) => e.id === id)
+            if (el) { el.x = x; el.y = y }
           }
         }),
 
@@ -81,7 +123,7 @@ export const useEditorStore = create<EditorState>()(
           if (!el) return
           const newEl = { ...el, id: generateId(), x: el.x + 20, y: el.y + 20 }
           state.elements.push(newEl)
-          state.selectedId = newEl.id
+          state.selectedIds = [newEl.id]
         }),
     })),
     { limit: 50 }

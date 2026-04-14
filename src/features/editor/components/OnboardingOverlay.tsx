@@ -101,7 +101,8 @@ export function OnboardingOverlay() {
   const [spotlightRect, setSpotlightRect] = useState<DOMRect | null>(null)
 
   const elements = useEditorStore((s) => s.elements)
-  const selectedId = useEditorStore((s) => s.selectedId)
+  const selectedIds = useEditorStore((s) => s.selectedIds)
+  const selectedId = selectedIds[selectedIds.length - 1] ?? null
   const activeTool = useUIStore((s) => s.activeTool)
 
   // Guard: prevents multiple simultaneous advance() calls
