@@ -49,8 +49,8 @@ export const useUIStore = create<UIState>()((set) => ({
   toggleGrid: () => set((state) => ({ showGrid: !state.showGrid })),
   setPanOffset: (offset) => set({
     panOffset: {
-      x: Math.max(-2000, Math.min(6000, offset.x)),
-      y: Math.max(-2000, Math.min(6000, offset.y)),
+      x: Math.max(-300, Math.min(2500, offset.x)),
+      y: Math.max(-300, Math.min(2500, offset.y)),
     },
   }),
   resetView: () => set({ zoom: 1, panOffset: { x: 0, y: 0 } }),

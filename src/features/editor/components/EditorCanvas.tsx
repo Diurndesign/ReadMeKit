@@ -418,7 +418,7 @@ export function EditorCanvas() {
                   <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#252529" strokeWidth="1" />
                 </pattern>
               </defs>
-              <rect x={-10000} y={-10000} width={20000} height={20000} fill="url(#grid-large)" pointerEvents="none" />
+              <rect x={-300} y={-300} width={3000} height={3000} fill="url(#grid-large)" pointerEvents="none" />
             </>
           )}
 
