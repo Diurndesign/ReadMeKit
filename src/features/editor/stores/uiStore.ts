@@ -10,6 +10,7 @@ interface UIState {
   editingId: string | null
   showTemplates: boolean
   showShortcuts: boolean
+  showExportDialog: boolean
   canvasBg: string
   canvasWidth: number | null
   canvasHeight: number | null
@@ -23,6 +24,7 @@ interface UIState {
   setEditingId: (id: string | null) => void
   setShowTemplates: (show: boolean) => void
   setShowShortcuts: (show: boolean) => void
+  setShowExportDialog: (show: boolean) => void
   setCanvasBg: (color: string) => void
   setCanvasSize: (w: number | null, h: number | null) => void
   setSnapGuides: (guides: { x?: number; y?: number }) => void
@@ -36,6 +38,7 @@ export const useUIStore = create<UIState>()((set) => ({
   editingId: null,
   showTemplates: false,
   showShortcuts: false,
+  showExportDialog: false,
   canvasBg: 'transparent',
   canvasWidth: null,
   canvasHeight: null,
@@ -49,6 +52,7 @@ export const useUIStore = create<UIState>()((set) => ({
   setEditingId: (id) => set({ editingId: id }),
   setShowTemplates: (show) => set({ showTemplates: show }),
   setShowShortcuts: (show) => set({ showShortcuts: show }),
+  setShowExportDialog: (show) => set({ showExportDialog: show }),
   setCanvasBg: (color) => set({ canvasBg: color }),
   setCanvasSize: (w, h) => set({ canvasWidth: w, canvasHeight: h }),
   setSnapGuides: (guides) => set({ snapGuides: guides }),
