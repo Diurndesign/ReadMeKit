@@ -1,5 +1,6 @@
 import { useResizeElement, CURSOR_MAP, type ResizeHandle } from '../../hooks/useResizeElement'
 import { useUIStore } from '../../stores/uiStore'
+import { wrapText } from '@/utils/wrapText'
 import type { TextElement as TextElementType } from '../../types/elements'
 
 interface Props {
@@ -20,6 +21,10 @@ export function TextElementSVG({ element, isSelected, onPointerDown }: Props) {
 
   const pad = element.bgPadding ?? 4
   const bgRadius = element.bgRadius ?? 4
+
+  const lines = wrapText(element.content, w, element.fontSize)
+  const lineHeight = element.fontSize * 1.3
+  const textContentHeight = lines.length * lineHeight
 
   const cornerHandles: { handle: ResizeHandle; hx: number; hy: number }[] = [
     { handle: 'nw', hx: x, hy: y },
@@ -44,27 +49,27 @@ export function TextElementSVG({ element, isSelected, onPointerDown }: Props) {
           x={x - pad}
           y={y - pad}
           width={w + pad * 2}
-          height={h + pad * 2}
+          height={Math.max(h, textContentHeight) + pad * 2}
           rx={bgRadius}
           ry={bgRadius}
           fill={element.background}
         />
       )}
       <text
-        x={textX}
-        y={y + element.fontSize}
-        width={w}
-        fontSize={element.fontSize}
-        fontWeight={element.fontWeight}
         fontFamily={element.fontFamily}
+        fontWeight={element.fontWeight}
+        fontSize={element.fontSize}
         fill={element.fill}
         textAnchor={textAnchor}
-        dominantBaseline="auto"
       >
-        {element.content}
+        {lines.map((line, i) => (
+          <tspan key={i} x={textX} y={y + element.fontSize + i * lineHeight}>
+            {line || '\u00A0'}
+          </tspan>
+        ))}
       </text>
       {/* Invisible hit area for easier clicking */}
-      <rect x={x} y={y} width={w} height={h} fill="transparent" />
+      <rect x={x} y={y} width={w} height={Math.max(h, textContentHeight)} fill="transparent" />
       {isSelected && (
         <>
           <rect

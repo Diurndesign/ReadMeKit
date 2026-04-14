@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react'
 import {
   Copy, ChevronUp, ChevronDown, X, AlignLeft, AlignCenter, AlignRight,
   Trash2, Square, Circle, Type, Move, Minus, Image,
@@ -15,6 +16,38 @@ import { cn } from '@/utils/cn'
 function PropertyInput({
   label, value, type = 'text', onChange,
 }: { label: string; value: string | number; type?: string; onChange: (v: string) => void }) {
+  const isFocused = useRef(false)
+  const [local, setLocal] = useState(
+    type === 'number' ? String(Math.round(Number(value))) : String(value)
+  )
+
+  // Sync external changes while not focused (e.g. arrow key nudge)
+  useEffect(() => {
+    if (!isFocused.current) {
+      setLocal(type === 'number' ? String(Math.round(Number(value))) : String(value))
+    }
+  }, [value, type])
+
+  if (type === 'number') {
+    return (
+      <div className="flex items-center gap-2">
+        <label className="text-xs text-[#71717a] w-8 shrink-0 text-right">{label}</label>
+        <input
+          type="number"
+          value={local}
+          onChange={(e) => setLocal(e.target.value)}
+          onFocus={(e) => { isFocused.current = true; e.target.select() }}
+          onBlur={() => { isFocused.current = false; onChange(local) }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur()
+            e.stopPropagation()
+          }}
+          className="flex-1 h-7 px-2 text-xs bg-[#0f0f11] border border-[#2e2e33] rounded text-[#e4e4e7] focus:outline-none focus:border-[#6366f1] transition-colors tabular-nums"
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-center gap-2">
       <label className="text-xs text-[#71717a] w-8 shrink-0 text-right">{label}</label>
@@ -22,6 +55,7 @@ function PropertyInput({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => e.stopPropagation()}
         className="flex-1 h-7 px-2 text-xs bg-[#0f0f11] border border-[#2e2e33] rounded text-[#e4e4e7] focus:outline-none focus:border-[#6366f1] transition-colors tabular-nums"
       />
     </div>
@@ -228,6 +262,22 @@ function TextProperties({ element, onUpdate }: { element: TextElement; onUpdate:
         className="w-full px-2 py-1.5 text-xs bg-[#0f0f11] border border-[#2e2e33] rounded text-[#e4e4e7] focus:outline-none focus:border-[#6366f1] transition-colors resize-none leading-relaxed"
       />
       <SectionLabel>Typographie</SectionLabel>
+      <div className="flex flex-wrap gap-1 mb-1.5">
+        {[12, 16, 20, 24, 32, 48].map((s) => (
+          <button
+            key={s}
+            onClick={() => onUpdate({ fontSize: s })}
+            className={cn(
+              'h-5 px-1.5 text-[10px] rounded border transition-colors tabular-nums',
+              element.fontSize === s
+                ? 'bg-[#6366f1] border-[#6366f1] text-white'
+                : 'bg-[#0f0f11] border-[#2e2e33] text-[#52525b] hover:border-[#6366f1] hover:text-[#e4e4e7]',
+            )}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
       <div className="grid grid-cols-2 gap-1.5">
         <PropertyInput label="Sz" value={element.fontSize} type="number" onChange={(v) => onUpdate({ fontSize: Math.max(8, Number(v)) })} />
         <div className="flex items-center gap-2">

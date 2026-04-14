@@ -23,10 +23,18 @@ function TextEditingOverlay({ element, svgRef, zoom, panOffset }: TextOverlayPro
   const [value, setValue] = useState(element.content)
   const ref = useRef<HTMLTextAreaElement>(null)
 
+  const autoResize = () => {
+    if (ref.current) {
+      ref.current.style.height = 'auto'
+      ref.current.style.height = `${ref.current.scrollHeight}px`
+    }
+  }
+
   useEffect(() => {
     ref.current?.focus()
     ref.current?.select()
-  }, [])
+    autoResize()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const svgRect = svgRef.current?.getBoundingClientRect() ?? { left: 0, top: 0 }
   const sx = svgRect.left + (element.x - panOffset.x) * zoom
@@ -43,11 +51,12 @@ function TextEditingOverlay({ element, svgRef, zoom, panOffset }: TextOverlayPro
     <textarea
       ref={ref}
       value={value}
-      onChange={(e) => setValue(e.target.value)}
+      onChange={(e) => { setValue(e.target.value); autoResize() }}
       onBlur={commit}
       onKeyDown={(e) => {
         if (e.key === 'Escape') { setEditingId(null); return }
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commit() }
+        // Ctrl+Enter / Cmd+Enter = commit; plain Enter = insert newline
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); commit(); return }
         e.stopPropagation()
       }}
       style={{
@@ -56,6 +65,7 @@ function TextEditingOverlay({ element, svgRef, zoom, panOffset }: TextOverlayPro
         top: sy,
         width: sw,
         minHeight: sh,
+        height: 'auto',
         fontSize: element.fontSize * zoom,
         fontWeight: element.fontWeight,
         fontFamily: element.fontFamily,
@@ -68,7 +78,7 @@ function TextEditingOverlay({ element, svgRef, zoom, panOffset }: TextOverlayPro
         margin: 0,
         outline: 'none',
         resize: 'none',
-        lineHeight: 1.2,
+        lineHeight: 1.3,
         zIndex: 100,
         caretColor: element.fill,
         overflow: 'hidden',
@@ -146,6 +156,7 @@ export function EditorCanvas() {
   const canvasBg = useUIStore((s) => s.canvasBg)
   const canvasWidth = useUIStore((s) => s.canvasWidth)
   const canvasHeight = useUIStore((s) => s.canvasHeight)
+  const snapGuides = useUIStore((s) => s.snapGuides)
   const { handlePointerDown } = useDragElement()
 
   // Line drawing state
@@ -190,19 +201,25 @@ export function EditorCanvas() {
     return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp) }
   }, [])
 
-  // Ctrl+wheel zoom centered on cursor
+  // Wheel: Ctrl = zoom centered on cursor; otherwise = pan
   const handleWheel = useCallback((e: WheelEvent) => {
-    if (!(e.ctrlKey || e.metaKey)) return
     e.preventDefault()
-    const factor = e.deltaY < 0 ? 1.1 : 0.9
-    const newZoom = Math.max(0.1, Math.min(5, zoom * factor))
-    const rect = svgRef.current!.getBoundingClientRect()
-    const mx = e.clientX - rect.left
-    const my = e.clientY - rect.top
-    const newPanX = mx / zoom + panOffset.x - mx / newZoom
-    const newPanY = my / zoom + panOffset.y - my / newZoom
-    setZoom(newZoom)
-    setPanOffset({ x: newPanX, y: newPanY })
+    if (e.ctrlKey || e.metaKey) {
+      const factor = e.deltaY < 0 ? 1.1 : 0.9
+      const newZoom = Math.max(0.1, Math.min(5, zoom * factor))
+      const rect = svgRef.current!.getBoundingClientRect()
+      const mx = e.clientX - rect.left
+      const my = e.clientY - rect.top
+      const newPanX = mx / zoom + panOffset.x - mx / newZoom
+      const newPanY = my / zoom + panOffset.y - my / newZoom
+      setZoom(newZoom)
+      setPanOffset({ x: newPanX, y: newPanY })
+    } else {
+      // Scroll = pan (trackpad-friendly; deltaX for horizontal, deltaY for vertical)
+      const dx = e.deltaX / zoom
+      const dy = e.deltaY / zoom
+      setPanOffset({ x: panOffset.x + dx, y: panOffset.y + dy })
+    }
   }, [zoom, panOffset, setZoom, setPanOffset])
 
   useEffect(() => {
@@ -221,8 +238,8 @@ export function EditorCanvas() {
   }
 
   const handleSvgPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
-    // Space+drag to pan
-    if (spaceHeld.current) {
+    // Middle-click or Space+drag → pan (can start from any element)
+    if (e.button === 1 || spaceHeld.current) {
       e.preventDefault()
       isPanning.current = true
       panStart.current = { x: e.clientX, y: e.clientY }
@@ -232,7 +249,7 @@ export function EditorCanvas() {
       return
     }
 
-    // Only handle direct SVG background clicks
+    // Only handle direct SVG background clicks (left button)
     if (e.target !== e.currentTarget) return
 
     const { x, y } = screenToCanvas(e.clientX, e.clientY)
@@ -461,6 +478,22 @@ export function EditorCanvas() {
             <rect
               x={marquee.x} y={marquee.y} width={marquee.w} height={marquee.h}
               fill="rgba(99,102,241,0.08)" stroke="#6366f1" strokeWidth={1} strokeDasharray="4 2"
+              pointerEvents="none"
+            />
+          )}
+
+          {/* Smart alignment guides */}
+          {snapGuides.x !== undefined && (
+            <line
+              x1={snapGuides.x} y1={-10000} x2={snapGuides.x} y2={10000}
+              stroke="#f59e0b" strokeWidth={1 / zoom}
+              pointerEvents="none"
+            />
+          )}
+          {snapGuides.y !== undefined && (
+            <line
+              x1={-10000} y1={snapGuides.y} x2={10000} y2={snapGuides.y}
+              stroke="#f59e0b" strokeWidth={1 / zoom}
               pointerEvents="none"
             />
           )}

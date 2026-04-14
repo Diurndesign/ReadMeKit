@@ -7,6 +7,7 @@ import {
 import { useEditorStore } from '../stores/editorStore'
 import { useUIStore, type ActiveTool } from '../stores/uiStore'
 import { cn } from '@/utils/cn'
+import { wrapText } from '@/utils/wrapText'
 import type { EditorElement } from '../types/elements'
 
 // ─── Shared SVG builder ───────────────────────────────────────────────────────
@@ -43,6 +44,10 @@ function buildSvgString(
         const x2 = el.x + el.width, y2 = el.y + el.height
         minX = Math.min(minX, el.x, x2); minY = Math.min(minY, el.y, y2)
         maxX = Math.max(maxX, el.x, x2); maxY = Math.max(maxY, el.y, y2)
+      } else if (el.type === 'text') {
+        const textH = wrapText(el.content, el.width, el.fontSize).length * el.fontSize * 1.3
+        minX = Math.min(minX, el.x); minY = Math.min(minY, el.y)
+        maxX = Math.max(maxX, el.x + el.width); maxY = Math.max(maxY, el.y + Math.max(el.height, textH))
       } else {
         minX = Math.min(minX, el.x); minY = Math.min(minY, el.y)
         maxX = Math.max(maxX, el.x + el.width); maxY = Math.max(maxY, el.y + el.height)
@@ -86,13 +91,19 @@ function buildSvgString(
     } else if (el.type === 'text') {
       const anchor = el.textAlign === 'center' ? 'middle' : el.textAlign === 'right' ? 'end' : 'start'
       const tx = el.textAlign === 'center' ? el.x + el.width / 2 : el.textAlign === 'right' ? el.x + el.width : el.x
-      const escaped = el.content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      const lines = wrapText(el.content, el.width, el.fontSize)
+      const lineHeight = el.fontSize * 1.3
       if (el.background) {
         const pad = el.bgPadding ?? 4
         const bgRx = el.bgRadius ?? 4
-        body.push(`  <rect x="${el.x - pad}" y="${el.y - pad}" width="${el.width + pad * 2}" height="${el.height + pad * 2}" rx="${bgRx}" ry="${bgRx}" fill="${el.background}"${op}/>`)
+        const bgH = Math.max(el.height, lines.length * lineHeight)
+        body.push(`  <rect x="${el.x - pad}" y="${el.y - pad}" width="${el.width + pad * 2}" height="${bgH + pad * 2}" rx="${bgRx}" ry="${bgRx}" fill="${el.background}"${op}/>`)
       }
-      body.push(`  <text x="${tx}" y="${el.y + el.fontSize}" font-size="${el.fontSize}" font-weight="${el.fontWeight}" font-family="${el.fontFamily}" fill="${el.fill}" text-anchor="${anchor}"${op}>${escaped}</text>`)
+      const tspans = lines.map((line, i) => {
+        const escaped = (line || ' ').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        return `    <tspan x="${tx}" y="${el.y + el.fontSize + i * lineHeight}">${escaped}</tspan>`
+      }).join('\n')
+      body.push(`  <text font-size="${el.fontSize}" font-weight="${el.fontWeight}" font-family="${el.fontFamily}" fill="${el.fill}" text-anchor="${anchor}"${op}>\n${tspans}\n  </text>`)
     } else if (el.type === 'line') {
       const x2 = el.x + el.width, y2 = el.y + el.height
       const da = el.strokeDash === 'dashed' ? ` stroke-dasharray="${el.strokeWidth * 4} ${el.strokeWidth * 2}"`

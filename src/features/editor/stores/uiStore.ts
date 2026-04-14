@@ -13,6 +13,7 @@ interface UIState {
   canvasBg: string
   canvasWidth: number | null
   canvasHeight: number | null
+  snapGuides: { x?: number; y?: number }
 
   setActiveTool: (tool: ActiveTool) => void
   setZoom: (zoom: number) => void
@@ -24,6 +25,7 @@ interface UIState {
   setShowShortcuts: (show: boolean) => void
   setCanvasBg: (color: string) => void
   setCanvasSize: (w: number | null, h: number | null) => void
+  setSnapGuides: (guides: { x?: number; y?: number }) => void
 }
 
 export const useUIStore = create<UIState>()((set) => ({
@@ -37,6 +39,7 @@ export const useUIStore = create<UIState>()((set) => ({
   canvasBg: 'transparent',
   canvasWidth: null,
   canvasHeight: null,
+  snapGuides: {},
 
   setActiveTool: (tool) => set({ activeTool: tool }),
   setZoom: (zoom) => set({ zoom: Math.max(0.1, Math.min(5, zoom)) }),
@@ -48,4 +51,5 @@ export const useUIStore = create<UIState>()((set) => ({
   setShowShortcuts: (show) => set({ showShortcuts: show }),
   setCanvasBg: (color) => set({ canvasBg: color }),
   setCanvasSize: (w, h) => set({ canvasWidth: w, canvasHeight: h }),
+  setSnapGuides: (guides) => set({ snapGuides: guides }),
 }))
