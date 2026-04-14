@@ -9,8 +9,7 @@
 <h1 align="center">ReadMeKit</h1>
 
 <p align="center">
-  <strong>Editeur visuel dans le navigateur pour creer de beaux composants README.</strong><br />
-  Bannieres heros, grilles de fonctionnalites, diagrammes, sections contributeurs — exportables en SVG et PNG.
+  <img src="./readmekit-presentation.svg" alt="ReadMeKit — Visual README Component Editor" width="900" />
 </p>
 
 ---
