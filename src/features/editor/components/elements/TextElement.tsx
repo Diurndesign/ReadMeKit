@@ -1,3 +1,4 @@
+import { useResizeElement, CURSOR_MAP, type ResizeHandle } from '../../hooks/useResizeElement'
 import type { TextElement as TextElementType } from '../../types/elements'
 
 interface Props {
@@ -7,6 +8,9 @@ interface Props {
 }
 
 export function TextElementSVG({ element, isSelected, onPointerDown }: Props) {
+  const { handleResizeStart } = useResizeElement()
+  const { x, y, width: w, height: h } = element
+
   const textAnchor =
     element.textAlign === 'center'
       ? 'middle'
@@ -16,20 +20,26 @@ export function TextElementSVG({ element, isSelected, onPointerDown }: Props) {
 
   const textX =
     element.textAlign === 'center'
-      ? element.x + element.width / 2
+      ? x + w / 2
       : element.textAlign === 'right'
-        ? element.x + element.width
-        : element.x
+        ? x + w
+        : x
+
+  const cornerHandles: { handle: ResizeHandle; hx: number; hy: number }[] = [
+    { handle: 'nw', hx: x, hy: y },
+    { handle: 'ne', hx: x + w, hy: y },
+    { handle: 'se', hx: x + w, hy: y + h },
+    { handle: 'sw', hx: x, hy: y + h },
+    { handle: 'e', hx: x + w, hy: y + h / 2 },
+    { handle: 'w', hx: x, hy: y + h / 2 },
+  ]
 
   return (
-    <g
-      onPointerDown={onPointerDown}
-      style={{ cursor: 'move', opacity: element.opacity }}
-    >
+    <g onPointerDown={onPointerDown} style={{ cursor: 'move', opacity: element.opacity }}>
       <text
         x={textX}
-        y={element.y + element.fontSize}
-        width={element.width}
+        y={y + element.fontSize}
+        width={w}
         fontSize={element.fontSize}
         fontWeight={element.fontWeight}
         fontFamily={element.fontFamily}
@@ -42,31 +52,30 @@ export function TextElementSVG({ element, isSelected, onPointerDown }: Props) {
       {isSelected && (
         <>
           <rect
-            x={element.x - 2}
-            y={element.y - 2}
-            width={element.width + 4}
-            height={element.height + 4}
+            x={x - 2}
+            y={y - 2}
+            width={w + 4}
+            height={h + 4}
             fill="none"
             stroke="#6366f1"
             strokeWidth={1.5}
             strokeDasharray="4 3"
             pointerEvents="none"
           />
-          {[
-            { cx: element.x, cy: element.y },
-            { cx: element.x + element.width, cy: element.y },
-            { cx: element.x, cy: element.y + element.height },
-            { cx: element.x + element.width, cy: element.y + element.height },
-          ].map((pos, i) => (
+          {cornerHandles.map(({ handle, hx, hy }) => (
             <circle
-              key={i}
-              cx={pos.cx}
-              cy={pos.cy}
+              key={handle}
+              cx={hx}
+              cy={hy}
               r={3.5}
               fill="white"
               stroke="#6366f1"
               strokeWidth={2}
-              pointerEvents="none"
+              style={{ cursor: CURSOR_MAP[handle] }}
+              onPointerDown={(e) => {
+                e.stopPropagation()
+                handleResizeStart(e, element.id, handle, { x, y, width: w, height: h })
+              }}
             />
           ))}
         </>

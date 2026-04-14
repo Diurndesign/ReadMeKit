@@ -1,6 +1,6 @@
 export interface BaseElement {
   id: string
-  type: 'rect' | 'text'
+  type: 'rect' | 'text' | 'circle'
   x: number
   y: number
   width: number
@@ -28,7 +28,14 @@ export interface TextElement extends BaseElement {
   textAlign: 'left' | 'center' | 'right'
 }
 
-export type EditorElement = RectElement | TextElement
+export interface CircleElement extends BaseElement {
+  type: 'circle'
+  fill: string
+  stroke: string
+  strokeWidth: number
+}
+
+export type EditorElement = RectElement | TextElement | CircleElement
 
 export function createRectElement(overrides?: Partial<RectElement>): RectElement {
   return {
@@ -45,6 +52,24 @@ export function createRectElement(overrides?: Partial<RectElement>): RectElement
     stroke: 'transparent',
     strokeWidth: 0,
     cornerRadius: 8,
+    ...overrides,
+  }
+}
+
+export function createCircleElement(overrides?: Partial<CircleElement>): CircleElement {
+  return {
+    id: '',
+    type: 'circle',
+    x: 100,
+    y: 100,
+    width: 120,
+    height: 120,
+    rotation: 0,
+    opacity: 1,
+    locked: false,
+    fill: '#22c55e',
+    stroke: 'transparent',
+    strokeWidth: 0,
     ...overrides,
   }
 }

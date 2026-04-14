@@ -1,10 +1,11 @@
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useEditorStore } from '../stores/editorStore'
 import { useUIStore } from '../stores/uiStore'
 import { useDragElement } from '../hooks/useDragElement'
 import { ElementRenderer } from './ElementRenderer'
-import { createRectElement, createTextElement } from '../types/elements'
+import { createRectElement, createTextElement, createCircleElement } from '../types/elements'
 import { generateId } from '@/utils/generateId'
-import { Square, Type } from 'lucide-react'
+import { Square, Type, Circle } from 'lucide-react'
 
 function EmptyCanvasHint() {
   const setActiveTool = useUIStore((s) => s.setActiveTool)
@@ -15,7 +16,7 @@ function EmptyCanvasHint() {
       style={{ zIndex: 1 }}
     >
       <div className="text-center pointer-events-auto">
-        {/* Logo / title */}
+        {/* Logo */}
         <div
           style={{
             width: 56,
@@ -56,79 +57,51 @@ function EmptyCanvasHint() {
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
           }}
         >
-          Commence par ajouter un element avec les boutons ci-dessous ou les raccourcis clavier.
+          Commence par ajouter un élément avec les boutons ci-dessous ou les raccourcis clavier.
         </p>
 
-        {/* Quick action buttons */}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-          <button
-            onClick={() => setActiveTool('rect')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '10px 20px',
-              background: '#18181b',
-              border: '1px solid #2e2e33',
-              borderRadius: 10,
-              color: '#a1a1aa',
-              fontSize: 13,
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#6366f1'
-              e.currentTarget.style.color = '#e4e4e7'
-              e.currentTarget.style.background = '#1c1c20'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#2e2e33'
-              e.currentTarget.style.color = '#a1a1aa'
-              e.currentTarget.style.background = '#18181b'
-            }}
-          >
-            <Square size={16} />
-            Rectangle
-            <span style={{ fontSize: 11, color: '#52525b', background: '#27272a', padding: '1px 6px', borderRadius: 4 }}>R</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTool('text')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '10px 20px',
-              background: '#18181b',
-              border: '1px solid #2e2e33',
-              borderRadius: 10,
-              color: '#a1a1aa',
-              fontSize: 13,
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#6366f1'
-              e.currentTarget.style.color = '#e4e4e7'
-              e.currentTarget.style.background = '#1c1c20'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#2e2e33'
-              e.currentTarget.style.color = '#a1a1aa'
-              e.currentTarget.style.background = '#18181b'
-            }}
-          >
-            <Type size={16} />
-            Texte
-            <span style={{ fontSize: 11, color: '#52525b', background: '#27272a', padding: '1px 6px', borderRadius: 4 }}>T</span>
-          </button>
+          {[
+            { tool: 'rect' as const, icon: <Square size={16} />, label: 'Rectangle', shortcut: 'R' },
+            { tool: 'text' as const, icon: <Type size={16} />, label: 'Texte', shortcut: 'T' },
+            { tool: 'circle' as const, icon: <Circle size={16} />, label: 'Cercle', shortcut: 'O' },
+          ].map(({ tool, icon, label, shortcut }) => (
+            <button
+              key={tool}
+              onClick={() => setActiveTool(tool)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 20px',
+                background: '#18181b',
+                border: '1px solid #2e2e33',
+                borderRadius: 10,
+                color: '#a1a1aa',
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#6366f1'
+                e.currentTarget.style.color = '#e4e4e7'
+                e.currentTarget.style.background = '#1c1c20'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#2e2e33'
+                e.currentTarget.style.color = '#a1a1aa'
+                e.currentTarget.style.background = '#18181b'
+              }}
+            >
+              {icon}
+              {label}
+              <span style={{ fontSize: 11, color: '#52525b', background: '#27272a', padding: '1px 6px', borderRadius: 4 }}>{shortcut}</span>
+            </button>
+          ))}
         </div>
 
-        {/* Keyboard hint */}
         <p
           style={{
             fontSize: 12,
@@ -138,8 +111,9 @@ function EmptyCanvasHint() {
           }}
         >
           <span style={{ color: '#52525b' }}>V</span> select &nbsp;&middot;&nbsp;
-          <span style={{ color: '#52525b' }}>R</span> rectangle &nbsp;&middot;&nbsp;
+          <span style={{ color: '#52525b' }}>R</span> rect &nbsp;&middot;&nbsp;
           <span style={{ color: '#52525b' }}>T</span> texte &nbsp;&middot;&nbsp;
+          <span style={{ color: '#52525b' }}>O</span> cercle &nbsp;&middot;&nbsp;
           <span style={{ color: '#52525b' }}>Ctrl+Z</span> annuler
         </p>
       </div>
@@ -155,59 +129,149 @@ export function EditorCanvas() {
   const activeTool = useUIStore((s) => s.activeTool)
   const setActiveTool = useUIStore((s) => s.setActiveTool)
   const showGrid = useUIStore((s) => s.showGrid)
+  const zoom = useUIStore((s) => s.zoom)
+  const setZoom = useUIStore((s) => s.setZoom)
+  const panOffset = useUIStore((s) => s.panOffset)
+  const setPanOffset = useUIStore((s) => s.setPanOffset)
   const { handlePointerDown } = useDragElement()
 
-  const handleCanvasClick = (e: React.PointerEvent<SVGSVGElement>) => {
-    // Only handle direct clicks on the SVG canvas, not on elements
+  const svgRef = useRef<SVGSVGElement>(null)
+  const [svgSize, setSvgSize] = useState({ w: 800, h: 600 })
+
+  // Track SVG container size for viewBox computation
+  useEffect(() => {
+    const svg = svgRef.current
+    if (!svg) return
+    const ro = new ResizeObserver(() => {
+      setSvgSize({ w: svg.clientWidth, h: svg.clientHeight })
+    })
+    ro.observe(svg)
+    setSvgSize({ w: svg.clientWidth, h: svg.clientHeight })
+    return () => ro.disconnect()
+  }, [])
+
+  // Ctrl+wheel to zoom (centered on cursor)
+  const handleWheel = useCallback(
+    (e: WheelEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return
+      e.preventDefault()
+
+      const factor = e.deltaY < 0 ? 1.1 : 0.9
+      const newZoom = Math.max(0.1, Math.min(5, zoom * factor))
+
+      const rect = svgRef.current!.getBoundingClientRect()
+      const mouseX = e.clientX - rect.left
+      const mouseY = e.clientY - rect.top
+
+      // Keep the canvas point under the cursor fixed
+      const newPanX = panOffset.x + mouseX / zoom - mouseX / newZoom
+      const newPanY = panOffset.y + mouseY / zoom - mouseY / newZoom
+
+      setZoom(newZoom)
+      setPanOffset({ x: newPanX, y: newPanY })
+    },
+    [zoom, panOffset, setZoom, setPanOffset]
+  )
+
+  useEffect(() => {
+    const svg = svgRef.current
+    if (!svg) return
+    svg.addEventListener('wheel', handleWheel, { passive: false })
+    return () => svg.removeEventListener('wheel', handleWheel)
+  }, [handleWheel])
+
+  // Space+drag to pan
+  const isPanning = useRef(false)
+  const panStart = useRef({ x: 0, y: 0 })
+  const panStartOffset = useRef({ x: 0, y: 0 })
+  const spaceHeld = useRef(false)
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat) {
+        const t = e.target as HTMLElement
+        if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') return
+        spaceHeld.current = true
+      }
+    }
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') spaceHeld.current = false
+    }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+    }
+  }, [])
+
+  const handleSvgPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    // Space+drag to pan
+    if (spaceHeld.current) {
+      e.preventDefault()
+      isPanning.current = true
+      panStart.current = { x: e.clientX, y: e.clientY }
+      panStartOffset.current = { ...panOffset }
+      ;(e.target as Element).setPointerCapture(e.pointerId)
+      return
+    }
+
+    // Only handle direct clicks on the SVG canvas (not on elements)
     if (e.target !== e.currentTarget) return
 
-    if (activeTool === 'rect') {
-      const svg = e.currentTarget
-      const point = svg.createSVGPoint()
-      point.x = e.clientX
-      point.y = e.clientY
-      const svgPoint = point.matrixTransform(svg.getScreenCTM()?.inverse())
+    const rect = svgRef.current!.getBoundingClientRect()
+    const canvasX = Math.round((e.clientX - rect.left) / zoom + panOffset.x)
+    const canvasY = Math.round((e.clientY - rect.top) / zoom + panOffset.y)
 
-      addElement(
-        createRectElement({
-          id: generateId(),
-          x: Math.round(svgPoint.x - 100),
-          y: Math.round(svgPoint.y - 60),
-        })
-      )
+    if (activeTool === 'rect') {
+      addElement(createRectElement({ id: generateId(), x: canvasX - 100, y: canvasY - 60 }))
       setActiveTool('select')
     } else if (activeTool === 'text') {
-      const svg = e.currentTarget
-      const point = svg.createSVGPoint()
-      point.x = e.clientX
-      point.y = e.clientY
-      const svgPoint = point.matrixTransform(svg.getScreenCTM()?.inverse())
-
-      addElement(
-        createTextElement({
-          id: generateId(),
-          x: Math.round(svgPoint.x - 100),
-          y: Math.round(svgPoint.y - 20),
-        })
-      )
+      addElement(createTextElement({ id: generateId(), x: canvasX - 100, y: canvasY - 20 }))
+      setActiveTool('select')
+    } else if (activeTool === 'circle') {
+      addElement(createCircleElement({ id: generateId(), x: canvasX - 60, y: canvasY - 60 }))
       setActiveTool('select')
     } else {
       selectElement(null)
     }
   }
 
+  const handleSvgPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (!isPanning.current) return
+    const dx = (e.clientX - panStart.current.x) / zoom
+    const dy = (e.clientY - panStart.current.y) / zoom
+    setPanOffset({
+      x: panStartOffset.current.x - dx,
+      y: panStartOffset.current.y - dy,
+    })
+  }
+
+  const handleSvgPointerUp = () => {
+    isPanning.current = false
+  }
+
+  const viewBox = `${panOffset.x} ${panOffset.y} ${svgSize.w / zoom} ${svgSize.h / zoom}`
+
+  const cursorStyle = spaceHeld.current
+    ? isPanning.current ? 'grabbing' : 'grab'
+    : activeTool !== 'select'
+      ? 'crosshair'
+      : 'default'
+
   return (
     <div data-onboarding="canvas" className="flex-1 overflow-hidden relative" style={{ background: '#0f0f11' }}>
-      {/* Empty state hint */}
       {elements.length === 0 && activeTool === 'select' && <EmptyCanvasHint />}
 
       <svg
+        ref={svgRef}
         width="100%"
         height="100%"
-        onPointerDown={handleCanvasClick}
-        style={{
-          cursor: activeTool !== 'select' ? 'crosshair' : 'default',
-        }}
+        viewBox={viewBox}
+        onPointerDown={handleSvgPointerDown}
+        onPointerMove={handleSvgPointerMove}
+        onPointerUp={handleSvgPointerUp}
+        style={{ cursor: cursorStyle, display: 'block' }}
       >
         {/* Grid pattern */}
         {showGrid && (
@@ -241,7 +305,15 @@ export function EditorCanvas() {
                 />
               </pattern>
             </defs>
-            <rect width="100%" height="100%" fill="url(#grid-large)" pointerEvents="none" />
+            {/* Cover whole viewBox with grid */}
+            <rect
+              x={panOffset.x}
+              y={panOffset.y}
+              width={svgSize.w / zoom}
+              height={svgSize.h / zoom}
+              fill="url(#grid-large)"
+              pointerEvents="none"
+            />
           </>
         )}
 

@@ -1,5 +1,5 @@
 import { useEditorStore } from '../stores/editorStore'
-import type { EditorElement, RectElement, TextElement } from '../types/elements'
+import type { EditorElement, RectElement, TextElement, CircleElement } from '../types/elements'
 
 function PropertyInput({
   label,
@@ -40,7 +40,7 @@ function ColorInput({
       <div className="flex items-center gap-2 flex-1">
         <input
           type="color"
-          value={value}
+          value={value.startsWith('#') ? value : '#000000'}
           onChange={(e) => onChange(e.target.value)}
           className="w-8 h-8 rounded cursor-pointer border border-[#2e2e33] bg-transparent"
         />
@@ -161,6 +161,38 @@ function RectProperties({
   )
 }
 
+function CircleProperties({
+  element,
+  onUpdate,
+}: {
+  element: CircleElement
+  onUpdate: (updates: Partial<CircleElement>) => void
+}) {
+  return (
+    <>
+      <SectionHeader>Fill</SectionHeader>
+      <ColorInput
+        label="Color"
+        value={element.fill}
+        onChange={(v) => onUpdate({ fill: v })}
+      />
+
+      <SectionHeader>Border</SectionHeader>
+      <ColorInput
+        label="Color"
+        value={element.stroke === 'transparent' ? '#000000' : element.stroke}
+        onChange={(v) => onUpdate({ stroke: v })}
+      />
+      <PropertyInput
+        label="Width"
+        value={element.strokeWidth}
+        type="number"
+        onChange={(v) => onUpdate({ strokeWidth: Math.max(0, Number(v)) })}
+      />
+    </>
+  )
+}
+
 function TextProperties({
   element,
   onUpdate,
@@ -234,6 +266,7 @@ export function PropertyPanel() {
   const elements = useEditorStore((s) => s.elements)
   const updateElement = useEditorStore((s) => s.updateElement)
   const deleteElement = useEditorStore((s) => s.deleteElement)
+  const duplicateElement = useEditorStore((s) => s.duplicateElement)
   const bringForward = useEditorStore((s) => s.bringForward)
   const sendBackward = useEditorStore((s) => s.sendBackward)
 
@@ -256,15 +289,24 @@ export function PropertyPanel() {
     updateElement(selectedElement.id, updates)
   }
 
+  const TYPE_LABELS: Record<string, string> = { rect: 'Rectangle', text: 'Text', circle: 'Circle' }
+
   return (
     <div data-onboarding="panel" className="w-64 border-l border-[#2e2e33] bg-[#18181b] overflow-y-auto">
       <div className="p-4 space-y-2">
-        {/* Element type badge */}
+        {/* Element type badge + layer controls */}
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-medium px-2 py-1 rounded bg-[#27272a] text-[#a1a1aa] uppercase tracking-wider">
-            {selectedElement.type}
+            {TYPE_LABELS[selectedElement.type] ?? selectedElement.type}
           </span>
           <div className="flex gap-1">
+            <button
+              onClick={() => duplicateElement(selectedElement.id)}
+              title="Duplicate (Ctrl+D)"
+              className="w-7 h-7 flex items-center justify-center rounded text-[#a1a1aa] hover:text-white hover:bg-[#27272a] text-xs"
+            >
+              ⧉
+            </button>
             <button
               onClick={() => sendBackward(selectedElement.id)}
               title="Send backward"
@@ -288,6 +330,9 @@ export function PropertyPanel() {
         {/* Type-specific properties */}
         {selectedElement.type === 'rect' && (
           <RectProperties element={selectedElement} onUpdate={handleUpdate} />
+        )}
+        {selectedElement.type === 'circle' && (
+          <CircleProperties element={selectedElement} onUpdate={handleUpdate} />
         )}
         {selectedElement.type === 'text' && (
           <TextProperties element={selectedElement} onUpdate={handleUpdate} />
