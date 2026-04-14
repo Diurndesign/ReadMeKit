@@ -1,4 +1,6 @@
 import { create } from 'zustand'
+import { DEFAULT_SECTIONS } from '../utils/buildReadmeString'
+import type { ReadmeLink } from '../utils/buildReadmeString'
 
 export type ActiveTool = 'select' | 'rect' | 'text' | 'circle' | 'line' | 'image'
 
@@ -16,6 +18,11 @@ interface UIState {
   canvasHeight: number | null
   snapGuides: { x?: number; y?: number }
 
+  // README export state
+  readmeSections: Record<string, boolean>
+  readmeProjectName: string
+  readmeLinks: ReadmeLink[]
+
   setActiveTool: (tool: ActiveTool) => void
   setZoom: (zoom: number) => void
   toggleGrid: () => void
@@ -28,6 +35,9 @@ interface UIState {
   setCanvasBg: (color: string) => void
   setCanvasSize: (w: number | null, h: number | null) => void
   setSnapGuides: (guides: { x?: number; y?: number }) => void
+  setReadmeSections: (sections: Record<string, boolean>) => void
+  setReadmeProjectName: (name: string) => void
+  setReadmeLinks: (links: ReadmeLink[]) => void
 }
 
 export const useUIStore = create<UIState>()((set) => ({
@@ -43,6 +53,11 @@ export const useUIStore = create<UIState>()((set) => ({
   canvasWidth: null,
   canvasHeight: null,
   snapGuides: {},
+
+  // README export initial state
+  readmeSections: { ...DEFAULT_SECTIONS },
+  readmeProjectName: '',
+  readmeLinks: [],
 
   setActiveTool: (tool) => set({ activeTool: tool }),
   setZoom: (zoom) => set({ zoom: Math.max(0.1, Math.min(5, zoom)) }),
@@ -61,4 +76,7 @@ export const useUIStore = create<UIState>()((set) => ({
   setCanvasBg: (color) => set({ canvasBg: color }),
   setCanvasSize: (w, h) => set({ canvasWidth: w, canvasHeight: h }),
   setSnapGuides: (guides) => set({ snapGuides: guides }),
+  setReadmeSections: (sections) => set({ readmeSections: sections }),
+  setReadmeProjectName: (name) => set({ readmeProjectName: name }),
+  setReadmeLinks: (links) => set({ readmeLinks: links }),
 }))

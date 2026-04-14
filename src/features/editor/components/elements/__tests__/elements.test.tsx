@@ -47,9 +47,10 @@ describe('RectElementSVG', () => {
     const { container } = renderInSvg(
       <RectElementSVG element={base} isSelected={true} onPointerDown={noop} />
     )
-    // 8 resize handles + 1 rotation handle = 9 circles in total
+    // Each handle = 2 circles (transparent hitbox r=8 + visual r=4)
+    // 8 resize handles × 2 + 1 rotation handle × 2 = 18 circles in total
     const circles = container.querySelectorAll('circle')
-    expect(circles.length).toBe(9)
+    expect(circles.length).toBe(18)
   })
 
   it('renders no handles when not selected', () => {
@@ -110,7 +111,8 @@ describe('CircleElementSVG', () => {
     const { container } = renderInSvg(
       <CircleElementSVG element={base} isSelected={true} onPointerDown={noop} />
     )
-    expect(container.querySelectorAll('circle').length).toBe(9)
+    // Each handle = 2 circles (transparent hitbox + visual) → 9 handles × 2 = 18
+    expect(container.querySelectorAll('circle').length).toBe(18)
   })
 })
 
@@ -163,8 +165,9 @@ describe('TextElementSVG', () => {
     const { container } = renderInSvg(
       <TextElementSVG element={base} isSelected={true} onPointerDown={noop} />
     )
-    // Text has 6 resize handles (corners + L/R edges) + 1 rotation = 7
-    expect(container.querySelectorAll('circle').length).toBe(7)
+    // Each handle = 2 circles (transparent hitbox + visual)
+    // 6 resize handles × 2 + 1 rotation handle × 2 = 14
+    expect(container.querySelectorAll('circle').length).toBe(14)
   })
 
   it('wraps multi-line text into multiple tspans', () => {
@@ -256,6 +259,7 @@ describe('ImageElementSVG', () => {
     const { container } = renderInSvg(
       <ImageElementSVG element={base} isSelected={true} onPointerDown={noop} />
     )
-    expect(container.querySelectorAll('circle').length).toBe(9)
+    // Each handle = 2 circles (transparent hitbox + visual) → 9 handles × 2 = 18
+    expect(container.querySelectorAll('circle').length).toBe(18)
   })
 })
