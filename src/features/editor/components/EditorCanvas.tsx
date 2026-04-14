@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { useEditorStore } from '../stores/editorStore'
 import { useUIStore } from '../stores/uiStore'
 import { useDragElement } from '../hooks/useDragElement'
@@ -16,7 +16,6 @@ function EmptyCanvasHint() {
       style={{ zIndex: 1 }}
     >
       <div className="text-center pointer-events-auto">
-        {/* Logo */}
         <div
           style={{
             width: 56,
@@ -136,21 +135,37 @@ export function EditorCanvas() {
   const { handlePointerDown } = useDragElement()
 
   const svgRef = useRef<SVGSVGElement>(null)
-  const [svgSize, setSvgSize] = useState({ w: 800, h: 600 })
+  const isPanning = useRef(false)
+  const panStart = useRef({ x: 0, y: 0 })
+  const panStartOffset = useRef({ x: 0, y: 0 })
+  const spaceHeld = useRef(false)
 
-  // Track SVG container size for viewBox computation
+  // Space key for pan mode
   useEffect(() => {
-    const svg = svgRef.current
-    if (!svg) return
-    const ro = new ResizeObserver(() => {
-      setSvgSize({ w: svg.clientWidth, h: svg.clientHeight })
-    })
-    ro.observe(svg)
-    setSvgSize({ w: svg.clientWidth, h: svg.clientHeight })
-    return () => ro.disconnect()
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat) {
+        const t = e.target as HTMLElement
+        if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') return
+        e.preventDefault()
+        spaceHeld.current = true
+        if (svgRef.current) svgRef.current.style.cursor = 'grab'
+      }
+    }
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        spaceHeld.current = false
+        if (svgRef.current) svgRef.current.style.cursor = ''
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+    }
   }, [])
 
-  // Ctrl+wheel to zoom (centered on cursor)
+  // Ctrl+wheel to zoom centered on cursor
   const handleWheel = useCallback(
     (e: WheelEvent) => {
       if (!(e.ctrlKey || e.metaKey)) return
@@ -163,9 +178,10 @@ export function EditorCanvas() {
       const mouseX = e.clientX - rect.left
       const mouseY = e.clientY - rect.top
 
-      // Keep the canvas point under the cursor fixed
-      const newPanX = panOffset.x + mouseX / zoom - mouseX / newZoom
-      const newPanY = panOffset.y + mouseY / zoom - mouseY / newZoom
+      // Keep the canvas point under cursor fixed:
+      // canvasX = mouseX/zoom + panOffset.x = mouseX/newZoom + newPanX
+      const newPanX = mouseX / zoom + panOffset.x - mouseX / newZoom
+      const newPanY = mouseY / zoom + panOffset.y - mouseY / newZoom
 
       setZoom(newZoom)
       setPanOffset({ x: newPanX, y: newPanY })
@@ -180,30 +196,14 @@ export function EditorCanvas() {
     return () => svg.removeEventListener('wheel', handleWheel)
   }, [handleWheel])
 
-  // Space+drag to pan
-  const isPanning = useRef(false)
-  const panStart = useRef({ x: 0, y: 0 })
-  const panStartOffset = useRef({ x: 0, y: 0 })
-  const spaceHeld = useRef(false)
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && !e.repeat) {
-        const t = e.target as HTMLElement
-        if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') return
-        spaceHeld.current = true
-      }
+  // Convert screen coordinates to canvas coordinates
+  const screenToCanvas = (clientX: number, clientY: number) => {
+    const rect = svgRef.current!.getBoundingClientRect()
+    return {
+      x: Math.round((clientX - rect.left) / zoom + panOffset.x),
+      y: Math.round((clientY - rect.top) / zoom + panOffset.y),
     }
-    const onKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space') spaceHeld.current = false
-    }
-    window.addEventListener('keydown', onKeyDown)
-    window.addEventListener('keyup', onKeyUp)
-    return () => {
-      window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('keyup', onKeyUp)
-    }
-  }, [])
+  }
 
   const handleSvgPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     // Space+drag to pan
@@ -213,24 +213,23 @@ export function EditorCanvas() {
       panStart.current = { x: e.clientX, y: e.clientY }
       panStartOffset.current = { ...panOffset }
       ;(e.target as Element).setPointerCapture(e.pointerId)
+      if (svgRef.current) svgRef.current.style.cursor = 'grabbing'
       return
     }
 
-    // Only handle direct clicks on the SVG canvas (not on elements)
+    // Only handle direct clicks on the SVG background (not on elements)
     if (e.target !== e.currentTarget) return
 
-    const rect = svgRef.current!.getBoundingClientRect()
-    const canvasX = Math.round((e.clientX - rect.left) / zoom + panOffset.x)
-    const canvasY = Math.round((e.clientY - rect.top) / zoom + panOffset.y)
+    const { x, y } = screenToCanvas(e.clientX, e.clientY)
 
     if (activeTool === 'rect') {
-      addElement(createRectElement({ id: generateId(), x: canvasX - 100, y: canvasY - 60 }))
+      addElement(createRectElement({ id: generateId(), x: x - 100, y: y - 60 }))
       setActiveTool('select')
     } else if (activeTool === 'text') {
-      addElement(createTextElement({ id: generateId(), x: canvasX - 100, y: canvasY - 20 }))
+      addElement(createTextElement({ id: generateId(), x: x - 100, y: y - 20 }))
       setActiveTool('select')
     } else if (activeTool === 'circle') {
-      addElement(createCircleElement({ id: generateId(), x: canvasX - 60, y: canvasY - 60 }))
+      addElement(createCircleElement({ id: generateId(), x: x - 60, y: y - 60 }))
       setActiveTool('select')
     } else {
       selectElement(null)
@@ -248,16 +247,17 @@ export function EditorCanvas() {
   }
 
   const handleSvgPointerUp = () => {
-    isPanning.current = false
+    if (isPanning.current) {
+      isPanning.current = false
+      if (svgRef.current) svgRef.current.style.cursor = spaceHeld.current ? 'grab' : ''
+    }
   }
 
-  const viewBox = `${panOffset.x} ${panOffset.y} ${svgSize.w / zoom} ${svgSize.h / zoom}`
+  // The <g> transform maps canvas coordinates to screen coordinates:
+  // screen = (canvas - panOffset) * zoom
+  const groupTransform = `scale(${zoom}) translate(${-panOffset.x}, ${-panOffset.y})`
 
-  const cursorStyle = spaceHeld.current
-    ? isPanning.current ? 'grabbing' : 'grab'
-    : activeTool !== 'select'
-      ? 'crosshair'
-      : 'default'
+  const cursorStyle = activeTool !== 'select' ? 'crosshair' : 'default'
 
   return (
     <div data-onboarding="canvas" className="flex-1 overflow-hidden relative" style={{ background: '#0f0f11' }}>
@@ -267,67 +267,40 @@ export function EditorCanvas() {
         ref={svgRef}
         width="100%"
         height="100%"
-        viewBox={viewBox}
+        style={{ cursor: cursorStyle, display: 'block' }}
         onPointerDown={handleSvgPointerDown}
         onPointerMove={handleSvgPointerMove}
         onPointerUp={handleSvgPointerUp}
-        style={{ cursor: cursorStyle, display: 'block' }}
       >
-        {/* Grid pattern */}
-        {showGrid && (
-          <>
-            <defs>
-              <pattern
-                id="grid-small"
-                width="20"
-                height="20"
-                patternUnits="userSpaceOnUse"
-              >
-                <path
-                  d="M 20 0 L 0 0 0 20"
-                  fill="none"
-                  stroke="#1e1e22"
-                  strokeWidth="0.5"
-                />
-              </pattern>
-              <pattern
-                id="grid-large"
-                width="100"
-                height="100"
-                patternUnits="userSpaceOnUse"
-              >
-                <rect width="100" height="100" fill="url(#grid-small)" />
-                <path
-                  d="M 100 0 L 0 0 0 100"
-                  fill="none"
-                  stroke="#252529"
-                  strokeWidth="1"
-                />
-              </pattern>
-            </defs>
-            {/* Cover whole viewBox with grid */}
-            <rect
-              x={panOffset.x}
-              y={panOffset.y}
-              width={svgSize.w / zoom}
-              height={svgSize.h / zoom}
-              fill="url(#grid-large)"
-              pointerEvents="none"
-            />
-          </>
-        )}
+        <g transform={groupTransform}>
+          {/* Grid — large rect covers all reachable canvas area */}
+          {showGrid && (
+            <>
+              <defs>
+                <pattern id="grid-small" width="20" height="20" patternUnits="userSpaceOnUse">
+                  <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#1e1e22" strokeWidth="0.5" />
+                </pattern>
+                <pattern id="grid-large" width="100" height="100" patternUnits="userSpaceOnUse">
+                  <rect width="100" height="100" fill="url(#grid-small)" />
+                  <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#252529" strokeWidth="1" />
+                </pattern>
+              </defs>
+              <rect x={-10000} y={-10000} width={20000} height={20000} fill="url(#grid-large)" pointerEvents="none" />
+            </>
+          )}
 
-        {/* Elements */}
-        {elements.map((element) => (
-          <ElementRenderer
-            key={element.id}
-            element={element}
-            isSelected={element.id === selectedId}
-            onPointerDown={(e) =>
-              handlePointerDown(e, element.id, element.x, element.y)
-            }
-          />
-        ))}
+          {/* Elements */}
+          {elements.map((element) => (
+            <ElementRenderer
+              key={element.id}
+              element={element}
+              isSelected={element.id === selectedId}
+              onPointerDown={(e) =>
+                handlePointerDown(e, element.id, element.x, element.y)
+              }
+            />
+          ))}
+        </g>
       </svg>
     </div>
   )
