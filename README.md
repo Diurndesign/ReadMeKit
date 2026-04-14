@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./readmekit-presentation.svg" alt="ReadMeKit — Visual README Presentation" width="900" />
+</p>
+
 # ReadMeKit
 
 **ReadMeKit** est un éditeur visuel dans le navigateur qui permet de concevoir des composants pour les READMEs GitHub — bannières, badges, diagrammes, etc. — et de les exporter en SVG, PNG ou PDF.
