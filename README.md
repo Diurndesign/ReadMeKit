@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/status-Phase%206%20complete-6366f1?style=flat-square" alt="Status" />
+  <img src="https://img.shields.io/badge/status-Phase%207%20UX-6366f1?style=flat-square" alt="Status" />
   <img src="https://img.shields.io/badge/stack-React%2019%20%2B%20TypeScript%20%2B%20Vite-3b82f6?style=flat-square" alt="Stack" />
   <img src="https://img.shields.io/badge/cost-%240%2Fmonth-22c55e?style=flat-square" alt="Cost" />
   <img src="https://img.shields.io/badge/license-MIT-a1a1aa?style=flat-square" alt="License" />
@@ -41,13 +41,13 @@ Ouvrir [http://localhost:5173](http://localhost:5173). L'onboarding interactif g
 
 | Type | Raccourci | Proprietes |
 |---|---|---|
-| Rectangle | `R` | Position, taille, remplissage solide ou degrade, bordure, rayon des coins, opacite |
-| Texte | `T` | Contenu, typographie, alignement, couleur, fond de texte (couleur + padding + radius), opacite |
-| Cercle / Ellipse | `O` | Remplissage solide ou degrade, bordure, opacite |
+| Rectangle | `R` | Position, taille, **rotation**, remplissage solide ou degrade, bordure, rayon des coins, opacite |
+| Texte | `T` | Contenu, typographie, **famille de police**, alignement, couleur, fond de texte, **rotation**, opacite |
+| Cercle / Ellipse | `O` | Remplissage solide ou degrade, bordure, **rotation**, opacite |
 | Ligne / Fleche | `L` | Trait (couleur, epaisseur, style), fleches debut/fin, style (solid/dashed/dotted) |
-| Image URL | `I` | Image distante par URL, redimensionnable |
+| Image URL | `I` | Image distante par URL, redimensionnable, **rotation** |
 
-Tous les elements ont : `locked`, `visible`, `name`.
+Tous les elements ont : `locked`, `visible`, `name`, `rotation`.
 
 ### Canvas
 
@@ -72,6 +72,7 @@ Tous les elements ont : `locked`, `visible`, `name`.
 | Deplacer au pixel | Touches fleches (1px) ou Shift+fleches (8px) |
 | Redimensionner | 8 poignees autour de l'element |
 | Proportions fixes | Shift pendant redimensionnement (poignees) |
+| Faire pivoter | Poignee bleue au-dessus de l'element (Shift = snap 15°) |
 | Dupliquer | `Ctrl+D` |
 | Copier | `Ctrl+C` |
 | Coller | `Ctrl+V` (avec decalage +20px) |
@@ -93,11 +94,12 @@ Tous les elements ont : `locked`, `visible`, `name`.
 
 - **Vide** — aide + reglages du canvas (fond)
 - **Multi-selection** — outils d'alignement (6 directions), distribution egale (H/V si 3+ elements), suppression groupe
-- **Element unique** — proprietes specifiques au type :
+- **Element unique** — toutes les proprietes communes (position, taille, rotation, opacite) + proprietes specifiques :
   - Rectangle / Cercle : remplissage solide ou degrade (couleur debut, couleur fin, angle 0-360)
-  - Texte : typographie, alignement, fond de texte (couleur, padding, radius)
+  - Texte : typographie, famille de police (5 options), alignement, fond de texte (couleur, padding, radius)
   - Ligne : couleur, epaisseur, style trait, fleches debut/fin
   - Image : URL de l'image distante
+- **Palettes de couleurs** — 12 couleurs de base accessibles en un clic sous chaque selecteur de couleur
 
 ### Templates
 
@@ -147,7 +149,8 @@ Bouton **Export** avec dropdown :
 | `Ctrl+0` | Reset zoom et pan |
 | Fleches | Deplacer de 1px |
 | `Shift`+Fleches | Deplacer de 8px |
-| `Shift` (poignee) | Proportions fixes pendant resize |
+| `Shift` (poignee resize) | Proportions fixes pendant resize |
+| `Shift` (poignee rotation) | Snap a 15° pendant rotation |
 | `?` | Afficher le panneau des raccourcis |
 
 ---

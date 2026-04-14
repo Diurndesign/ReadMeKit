@@ -64,9 +64,18 @@ function buildSvgString(
     body.push(`  <rect x="${ox}" y="${oy}" width="${w}" height="${h}" fill="${canvasBg}"/>`)
   }
 
+  // Helper: wrap lines in a rotation <g> when needed
+  function withRotation(lines: string[], rotation: number, cx: number, cy: number): string[] {
+    if (!rotation) return lines
+    return [`  <g transform="rotate(${rotation}, ${cx}, ${cy})">`, ...lines.map((l) => '  ' + l), `  </g>`]
+  }
+
   for (const el of visible) {
     const op = el.opacity !== 1 ? ` opacity="${el.opacity}"` : ''
+    const rot = el.rotation ?? 0
+
     if (el.type === 'rect') {
+      const cx = el.x + el.width / 2, cy = el.y + el.height / 2
       const st = el.strokeWidth > 0 ? ` stroke="${el.stroke}" stroke-width="${el.strokeWidth}"` : ''
       const rx = el.cornerRadius > 0 ? ` rx="${el.cornerRadius}" ry="${el.cornerRadius}"` : ''
       let fill = el.fill
@@ -76,9 +85,12 @@ function buildSvgString(
         defs.push(`  <linearGradient id="${gradId}" x1="${gc.x1}" y1="${gc.y1}" x2="${gc.x2}" y2="${gc.y2}"><stop offset="0%" stop-color="${el.gradientFrom}"/><stop offset="100%" stop-color="${el.gradientTo}"/></linearGradient>`)
         fill = `url(#${gradId})`
       }
-      body.push(`  <rect x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}"${rx} fill="${fill}"${st}${op}/>`)
+      body.push(...withRotation(
+        [`<rect x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}"${rx} fill="${fill}"${st}${op}/>`],
+        rot, cx, cy
+      ))
     } else if (el.type === 'circle') {
-      const cx = el.x + el.width / 2; const cy = el.y + el.height / 2
+      const cx = el.x + el.width / 2, cy = el.y + el.height / 2
       const st = el.strokeWidth > 0 ? ` stroke="${el.stroke}" stroke-width="${el.strokeWidth}"` : ''
       let fill = el.fill
       if (el.gradientFrom && el.gradientTo) {
@@ -87,23 +99,29 @@ function buildSvgString(
         defs.push(`  <linearGradient id="${gradId}" x1="${gc.x1}" y1="${gc.y1}" x2="${gc.x2}" y2="${gc.y2}"><stop offset="0%" stop-color="${el.gradientFrom}"/><stop offset="100%" stop-color="${el.gradientTo}"/></linearGradient>`)
         fill = `url(#${gradId})`
       }
-      body.push(`  <ellipse cx="${cx}" cy="${cy}" rx="${el.width / 2}" ry="${el.height / 2}" fill="${fill}"${st}${op}/>`)
+      body.push(...withRotation(
+        [`<ellipse cx="${cx}" cy="${cy}" rx="${el.width / 2}" ry="${el.height / 2}" fill="${fill}"${st}${op}/>`],
+        rot, cx, cy
+      ))
     } else if (el.type === 'text') {
+      const cx = el.x + el.width / 2, cy = el.y + el.height / 2
       const anchor = el.textAlign === 'center' ? 'middle' : el.textAlign === 'right' ? 'end' : 'start'
-      const tx = el.textAlign === 'center' ? el.x + el.width / 2 : el.textAlign === 'right' ? el.x + el.width : el.x
+      const tx = el.textAlign === 'center' ? cx : el.textAlign === 'right' ? el.x + el.width : el.x
       const lines = wrapText(el.content, el.width, el.fontSize)
       const lineHeight = el.fontSize * 1.3
+      const innerLines: string[] = []
       if (el.background) {
         const pad = el.bgPadding ?? 4
         const bgRx = el.bgRadius ?? 4
         const bgH = Math.max(el.height, lines.length * lineHeight)
-        body.push(`  <rect x="${el.x - pad}" y="${el.y - pad}" width="${el.width + pad * 2}" height="${bgH + pad * 2}" rx="${bgRx}" ry="${bgRx}" fill="${el.background}"${op}/>`)
+        innerLines.push(`<rect x="${el.x - pad}" y="${el.y - pad}" width="${el.width + pad * 2}" height="${bgH + pad * 2}" rx="${bgRx}" ry="${bgRx}" fill="${el.background}"${op}/>`)
       }
       const tspans = lines.map((line, i) => {
         const escaped = (line || ' ').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
         return `    <tspan x="${tx}" y="${el.y + el.fontSize + i * lineHeight}">${escaped}</tspan>`
       }).join('\n')
-      body.push(`  <text font-size="${el.fontSize}" font-weight="${el.fontWeight}" font-family="${el.fontFamily}" fill="${el.fill}" text-anchor="${anchor}"${op}>\n${tspans}\n  </text>`)
+      innerLines.push(`<text font-size="${el.fontSize}" font-weight="${el.fontWeight}" font-family="${el.fontFamily}" fill="${el.fill}" text-anchor="${anchor}"${op}>\n${tspans}\n  </text>`)
+      body.push(...withRotation(innerLines, rot, cx, cy))
     } else if (el.type === 'line') {
       const x2 = el.x + el.width, y2 = el.y + el.height
       const da = el.strokeDash === 'dashed' ? ` stroke-dasharray="${el.strokeWidth * 4} ${el.strokeWidth * 2}"`
@@ -116,7 +134,11 @@ function buildSvgString(
       const ms = el.arrowStart ? ` marker-start="url(#${mid})"` : ''
       body.push(`  <line x1="${el.x}" y1="${el.y}" x2="${x2}" y2="${y2}" stroke="${el.stroke}" stroke-width="${el.strokeWidth}" stroke-linecap="round"${da}${me}${ms}${op}/>`)
     } else if (el.type === 'image' && el.src) {
-      body.push(`  <image href="${el.src}" x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}" preserveAspectRatio="xMidYMid meet"${op}/>`)
+      const cx = el.x + el.width / 2, cy = el.y + el.height / 2
+      body.push(...withRotation(
+        [`<image href="${el.src}" x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}" preserveAspectRatio="xMidYMid meet"${op}/>`],
+        rot, cx, cy
+      ))
     }
   }
 

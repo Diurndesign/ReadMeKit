@@ -1,4 +1,5 @@
 import { useResizeElement, CURSOR_MAP, type ResizeHandle } from '../../hooks/useResizeElement'
+import { useRotateElement } from '../../hooks/useRotateElement'
 import type { CircleElement as CircleElementType } from '../../types/elements'
 
 interface Props {
@@ -19,29 +20,33 @@ function gradientCoords(angleDeg: number) {
 
 export function CircleElementSVG({ element, isSelected, onPointerDown }: Props) {
   const { handleResizeStart } = useResizeElement()
+  const { handleRotateStart } = useRotateElement()
   const { x, y, width: w, height: h } = element
   const cx = x + w / 2
   const cy = y + h / 2
-  const rx = w / 2
-  const ry = h / 2
+  const rotation = element.rotation ?? 0
 
   const hasGradient = !!(element.gradientFrom && element.gradientTo)
   const gradId = `grad-${element.id}`
   const coords = hasGradient ? gradientCoords(element.gradientAngle ?? 90) : null
 
-  const cornerHandles: { handle: ResizeHandle; hx: number; hy: number }[] = [
+  const handles: { handle: ResizeHandle; hx: number; hy: number }[] = [
     { handle: 'nw', hx: x, hy: y },
     { handle: 'ne', hx: x + w, hy: y },
     { handle: 'se', hx: x + w, hy: y + h },
     { handle: 'sw', hx: x, hy: y + h },
-    { handle: 'n', hx: x + w / 2, hy: y },
-    { handle: 's', hx: x + w / 2, hy: y + h },
-    { handle: 'e', hx: x + w, hy: y + h / 2 },
-    { handle: 'w', hx: x, hy: y + h / 2 },
+    { handle: 'n', hx: cx, hy: y },
+    { handle: 's', hx: cx, hy: y + h },
+    { handle: 'e', hx: x + w, hy: cy },
+    { handle: 'w', hx: x, hy: cy },
   ]
 
   return (
-    <g onPointerDown={onPointerDown} style={{ cursor: 'move', opacity: element.opacity }}>
+    <g
+      transform={rotation !== 0 ? `rotate(${rotation}, ${cx}, ${cy})` : undefined}
+      onPointerDown={onPointerDown}
+      style={{ cursor: 'move', opacity: element.opacity }}
+    >
       {hasGradient && coords && (
         <defs>
           <linearGradient id={gradId} x1={coords.x1} y1={coords.y1} x2={coords.x2} y2={coords.y2}>
@@ -51,10 +56,7 @@ export function CircleElementSVG({ element, isSelected, onPointerDown }: Props) 
         </defs>
       )}
       <ellipse
-        cx={cx}
-        cy={cy}
-        rx={rx}
-        ry={ry}
+        cx={cx} cy={cy} rx={w / 2} ry={h / 2}
         fill={hasGradient ? `url(#${gradId})` : element.fill}
         stroke={element.stroke}
         strokeWidth={element.strokeWidth}
@@ -62,25 +64,14 @@ export function CircleElementSVG({ element, isSelected, onPointerDown }: Props) 
       {isSelected && (
         <>
           <rect
-            x={x - 1}
-            y={y - 1}
-            width={w + 2}
-            height={h + 2}
-            fill="none"
-            stroke="#6366f1"
-            strokeWidth={1.5}
-            strokeDasharray="6 3"
+            x={x - 1} y={y - 1} width={w + 2} height={h + 2}
+            fill="none" stroke="#6366f1" strokeWidth={1.5} strokeDasharray="6 3"
             pointerEvents="none"
           />
-          {cornerHandles.map(({ handle, hx, hy }) => (
+          {handles.map(({ handle, hx, hy }) => (
             <circle
-              key={handle}
-              cx={hx}
-              cy={hy}
-              r={4}
-              fill="white"
-              stroke="#6366f1"
-              strokeWidth={2}
+              key={handle} cx={hx} cy={hy} r={4}
+              fill="white" stroke="#6366f1" strokeWidth={2}
               style={{ cursor: CURSOR_MAP[handle] }}
               onPointerDown={(e) => {
                 e.stopPropagation()
@@ -88,6 +79,18 @@ export function CircleElementSVG({ element, isSelected, onPointerDown }: Props) 
               }}
             />
           ))}
+          {/* Rotation handle */}
+          <line x1={cx} y1={y - 22} x2={cx} y2={y}
+            stroke="#6366f1" strokeWidth={1.5} pointerEvents="none" />
+          <circle
+            cx={cx} cy={y - 22} r={5}
+            fill="#6366f1" stroke="white" strokeWidth={1.5}
+            style={{ cursor: 'alias' }}
+            onPointerDown={(e) => {
+              e.stopPropagation()
+              handleRotateStart(e, element.id, cx, cy, rotation)
+            }}
+          />
         </>
       )}
     </g>

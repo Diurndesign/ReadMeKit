@@ -1,4 +1,5 @@
 import { useResizeElement, CURSOR_MAP, type ResizeHandle } from '../../hooks/useResizeElement'
+import { useRotateElement } from '../../hooks/useRotateElement'
 import type { RectElement as RectElementType } from '../../types/elements'
 
 interface Props {
@@ -19,25 +20,33 @@ function gradientCoords(angleDeg: number) {
 
 export function RectElementSVG({ element, isSelected, onPointerDown }: Props) {
   const { handleResizeStart } = useResizeElement()
+  const { handleRotateStart } = useRotateElement()
   const { x, y, width: w, height: h } = element
+  const cx = x + w / 2
+  const cy = y + h / 2
+  const rotation = element.rotation ?? 0
 
   const hasGradient = !!(element.gradientFrom && element.gradientTo)
   const gradId = `grad-${element.id}`
   const coords = hasGradient ? gradientCoords(element.gradientAngle ?? 90) : null
 
-  const handles: { handle: ResizeHandle; cx: number; cy: number }[] = [
-    { handle: 'nw', cx: x, cy: y },
-    { handle: 'n', cx: x + w / 2, cy: y },
-    { handle: 'ne', cx: x + w, cy: y },
-    { handle: 'e', cx: x + w, cy: y + h / 2 },
-    { handle: 'se', cx: x + w, cy: y + h },
-    { handle: 's', cx: x + w / 2, cy: y + h },
-    { handle: 'sw', cx: x, cy: y + h },
-    { handle: 'w', cx: x, cy: y + h / 2 },
+  const handles: { handle: ResizeHandle; hx: number; hy: number }[] = [
+    { handle: 'nw', hx: x, hy: y },
+    { handle: 'n', hx: cx, hy: y },
+    { handle: 'ne', hx: x + w, hy: y },
+    { handle: 'e', hx: x + w, hy: cy },
+    { handle: 'se', hx: x + w, hy: y + h },
+    { handle: 's', hx: cx, hy: y + h },
+    { handle: 'sw', hx: x, hy: y + h },
+    { handle: 'w', hx: x, hy: cy },
   ]
 
   return (
-    <g onPointerDown={onPointerDown} style={{ cursor: 'move', opacity: element.opacity }}>
+    <g
+      transform={rotation !== 0 ? `rotate(${rotation}, ${cx}, ${cy})` : undefined}
+      onPointerDown={onPointerDown}
+      style={{ cursor: 'move', opacity: element.opacity }}
+    >
       {hasGradient && coords && (
         <defs>
           <linearGradient id={gradId} x1={coords.x1} y1={coords.y1} x2={coords.x2} y2={coords.y2}>
@@ -47,12 +56,8 @@ export function RectElementSVG({ element, isSelected, onPointerDown }: Props) {
         </defs>
       )}
       <rect
-        x={x}
-        y={y}
-        width={w}
-        height={h}
-        rx={element.cornerRadius}
-        ry={element.cornerRadius}
+        x={x} y={y} width={w} height={h}
+        rx={element.cornerRadius} ry={element.cornerRadius}
         fill={hasGradient ? `url(#${gradId})` : element.fill}
         stroke={element.stroke}
         strokeWidth={element.strokeWidth}
@@ -60,27 +65,15 @@ export function RectElementSVG({ element, isSelected, onPointerDown }: Props) {
       {isSelected && (
         <>
           <rect
-            x={x - 1}
-            y={y - 1}
-            width={w + 2}
-            height={h + 2}
-            rx={element.cornerRadius}
-            ry={element.cornerRadius}
-            fill="none"
-            stroke="#6366f1"
-            strokeWidth={2}
-            strokeDasharray="6 3"
+            x={x - 1} y={y - 1} width={w + 2} height={h + 2}
+            rx={element.cornerRadius} ry={element.cornerRadius}
+            fill="none" stroke="#6366f1" strokeWidth={2} strokeDasharray="6 3"
             pointerEvents="none"
           />
-          {handles.map(({ handle, cx, cy }) => (
+          {handles.map(({ handle, hx, hy }) => (
             <circle
-              key={handle}
-              cx={cx}
-              cy={cy}
-              r={4}
-              fill="white"
-              stroke="#6366f1"
-              strokeWidth={2}
+              key={handle} cx={hx} cy={hy} r={4}
+              fill="white" stroke="#6366f1" strokeWidth={2}
               style={{ cursor: CURSOR_MAP[handle] }}
               onPointerDown={(e) => {
                 e.stopPropagation()
@@ -88,6 +81,18 @@ export function RectElementSVG({ element, isSelected, onPointerDown }: Props) {
               }}
             />
           ))}
+          {/* Rotation handle */}
+          <line x1={cx} y1={y - 22} x2={cx} y2={y}
+            stroke="#6366f1" strokeWidth={1.5} pointerEvents="none" />
+          <circle
+            cx={cx} cy={y - 22} r={5}
+            fill="#6366f1" stroke="white" strokeWidth={1.5}
+            style={{ cursor: 'alias' }}
+            onPointerDown={(e) => {
+              e.stopPropagation()
+              handleRotateStart(e, element.id, cx, cy, rotation)
+            }}
+          />
         </>
       )}
     </g>

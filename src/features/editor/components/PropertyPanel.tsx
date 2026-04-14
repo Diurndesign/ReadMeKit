@@ -62,26 +62,49 @@ function PropertyInput({
   )
 }
 
+const COLOR_SWATCHES = [
+  '#6366f1', '#818cf8', '#ec4899', '#f43f5e',
+  '#22c55e', '#3b82f6', '#f59e0b', '#a78bfa',
+  '#e4e4e7', '#71717a', '#18181b', '#ffffff',
+]
+
 function ColorInput({
   label, value, onChange,
 }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
-    <div className="flex items-center gap-2">
-      <label className="text-xs text-[#71717a] w-8 shrink-0 text-right">{label}</label>
-      <div className="flex items-center gap-1.5 flex-1 h-7 px-1.5 bg-[#0f0f11] border border-[#2e2e33] rounded focus-within:border-[#6366f1] transition-colors">
-        <input
-          type="color"
-          value={value.startsWith('#') ? value : '#000000'}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-5 h-5 rounded-sm cursor-pointer border-0 bg-transparent shrink-0 p-0"
-          style={{ padding: 0 }}
-        />
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="flex-1 text-xs bg-transparent text-[#e4e4e7] focus:outline-none font-mono min-w-0"
-        />
+    <div>
+      <div className="flex items-center gap-2">
+        <label className="text-xs text-[#71717a] w-8 shrink-0 text-right">{label}</label>
+        <div className="flex items-center gap-1.5 flex-1 h-7 px-1.5 bg-[#0f0f11] border border-[#2e2e33] rounded focus-within:border-[#6366f1] transition-colors">
+          <input
+            type="color"
+            value={value.startsWith('#') ? value : '#000000'}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-5 h-5 rounded-sm cursor-pointer border-0 bg-transparent shrink-0 p-0"
+            style={{ padding: 0 }}
+          />
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={(e) => e.stopPropagation()}
+            className="flex-1 text-xs bg-transparent text-[#e4e4e7] focus:outline-none font-mono min-w-0"
+          />
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-1 mt-1.5 pl-10">
+        {COLOR_SWATCHES.map((c) => (
+          <button
+            key={c}
+            title={c}
+            onClick={() => onChange(c)}
+            style={{ background: c }}
+            className={cn(
+              'w-4 h-4 rounded-sm border transition-all',
+              value === c ? 'border-white scale-110' : 'border-[#3f3f46] hover:border-white hover:scale-110',
+            )}
+          />
+        ))}
       </div>
     </div>
   )
@@ -113,6 +136,24 @@ function CommonProperties({ element, onUpdate }: { element: EditorElement; onUpd
       <div className="grid grid-cols-2 gap-1.5">
         <PropertyInput label="W" value={Math.round(element.width)} type="number" onChange={(v) => onUpdate({ width: Math.max(10, Number(v)) })} />
         <PropertyInput label="H" value={Math.round(element.height)} type="number" onChange={(v) => onUpdate({ height: Math.max(10, Number(v)) })} />
+      </div>
+      <SectionLabel>Rotation</SectionLabel>
+      <div className="flex items-center gap-2">
+        <input
+          type="range" min="0" max="359" step="1"
+          value={element.rotation ?? 0}
+          onChange={(e) => onUpdate({ rotation: Number(e.target.value) })}
+          className="flex-1 accent-[#6366f1] h-1"
+        />
+        <PropertyInput
+          label="°"
+          value={element.rotation ?? 0}
+          type="number"
+          onChange={(v) => {
+            const deg = ((Number(v) % 360) + 360) % 360
+            onUpdate({ rotation: Math.round(deg) })
+          }}
+        />
       </div>
       <SectionLabel>Opacité</SectionLabel>
       <div className="flex items-center gap-2">
@@ -295,6 +336,20 @@ function TextProperties({ element, onUpdate }: { element: TextElement; onUpdate:
             <option value={800}>Extra Bold</option>
           </select>
         </div>
+      </div>
+      <div className="flex items-center gap-2 mt-1.5">
+        <label className="text-xs text-[#71717a] w-8 shrink-0 text-right">Font</label>
+        <select
+          value={element.fontFamily}
+          onChange={(e) => onUpdate({ fontFamily: e.target.value })}
+          className="flex-1 h-7 px-1.5 text-xs bg-[#0f0f11] border border-[#2e2e33] rounded text-[#e4e4e7] focus:outline-none focus:border-[#6366f1]"
+        >
+          <option value='-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif'>System UI</option>
+          <option value='"Consolas", "Cascadia Code", "Courier New", monospace'>Monospace</option>
+          <option value='"Georgia", "Times New Roman", serif'>Serif</option>
+          <option value='Impact, "Arial Black", sans-serif'>Impact</option>
+          <option value='"Arial", "Helvetica Neue", sans-serif'>Arial</option>
+        </select>
       </div>
       <div className="flex items-center gap-2 mt-1.5">
         <label className="text-xs text-[#71717a] w-8 shrink-0 text-right">Align</label>
