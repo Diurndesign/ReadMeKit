@@ -63,28 +63,31 @@ export function ImageElementSVG({ element, isSelected, onPointerDown }: Props) {
             pointerEvents="none"
           />
           {handles.map(({ handle, hx, hy }) => (
-            <circle
-              key={handle} cx={hx} cy={hy} r={4}
-              fill="white" stroke="#6366f1" strokeWidth={2}
-              style={{ cursor: CURSOR_MAP[handle] }}
-              onPointerDown={(e) => {
-                e.stopPropagation()
-                handleResizeStart(e, element.id, handle, { x, y, width: w, height: h })
-              }}
-            />
+            <g key={handle}>
+              <circle
+                cx={hx} cy={hy} r={8}
+                fill="transparent"
+                style={{ cursor: CURSOR_MAP[handle] }}
+                onPointerDown={(e) => {
+                  e.stopPropagation()
+                  handleResizeStart(e, element.id, handle, { x, y, width: w, height: h })
+                }}
+              />
+              <circle cx={hx} cy={hy} r={4} fill="white" stroke="#6366f1" strokeWidth={2} pointerEvents="none" />
+            </g>
           ))}
-          {/* Rotation handle */}
           <line x1={cx} y1={y - 22} x2={cx} y2={y}
             stroke="#6366f1" strokeWidth={1.5} pointerEvents="none" />
           <circle
-            cx={cx} cy={y - 22} r={5}
-            fill="#6366f1" stroke="white" strokeWidth={1.5}
+            cx={cx} cy={y - 22} r={9}
+            fill="transparent"
             style={{ cursor: 'alias' }}
             onPointerDown={(e) => {
               e.stopPropagation()
               handleRotateStart(e, element.id, cx, cy, rotation)
             }}
           />
+          <circle cx={cx} cy={y - 22} r={5} fill="#6366f1" stroke="white" strokeWidth={1.5} pointerEvents="none" />
         </>
       )}
     </g>
