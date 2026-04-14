@@ -26,6 +26,8 @@ interface EditorState {
   toggleElementVisibility: (id: string) => void
   toggleElementLock: (id: string) => void
   renameElement: (id: string, name: string) => void
+  alignElements: (ids: string[], direction: 'left' | 'center-h' | 'right' | 'top' | 'middle-v' | 'bottom') => void
+  distributeElements: (ids: string[], axis: 'h' | 'v') => void
 }
 
 export const useEditorStore = create<EditorState>()(
@@ -163,6 +165,53 @@ export const useEditorStore = create<EditorState>()(
         set((state) => {
           const el = state.elements.find((e) => e.id === id)
           if (el) el.name = name
+        }),
+
+      alignElements: (ids, direction) =>
+        set((state) => {
+          const targets = state.elements.filter((e) => ids.includes(e.id))
+          if (targets.length < 2) return
+          const minX = Math.min(...targets.map((e) => e.x))
+          const maxX = Math.max(...targets.map((e) => e.x + e.width))
+          const minY = Math.min(...targets.map((e) => e.y))
+          const maxY = Math.max(...targets.map((e) => e.y + e.height))
+          const centerX = (minX + maxX) / 2
+          const centerY = (minY + maxY) / 2
+          for (const el of targets) {
+            if (direction === 'left') el.x = minX
+            else if (direction === 'center-h') el.x = centerX - el.width / 2
+            else if (direction === 'right') el.x = maxX - el.width
+            else if (direction === 'top') el.y = minY
+            else if (direction === 'middle-v') el.y = centerY - el.height / 2
+            else if (direction === 'bottom') el.y = maxY - el.height
+          }
+        }),
+
+      distributeElements: (ids, axis) =>
+        set((state) => {
+          const targets = state.elements.filter((e) => ids.includes(e.id))
+          if (targets.length < 3) return
+          if (axis === 'h') {
+            const sorted = [...targets].sort((a, b) => a.x - b.x)
+            const totalW = sorted.reduce((sum, e) => sum + e.width, 0)
+            const span = sorted[sorted.length - 1].x + sorted[sorted.length - 1].width - sorted[0].x
+            const gap = (span - totalW) / (sorted.length - 1)
+            let cursor = sorted[0].x
+            for (const el of sorted) {
+              const found = state.elements.find((e) => e.id === el.id)
+              if (found) { found.x = Math.round(cursor); cursor += found.width + gap }
+            }
+          } else {
+            const sorted = [...targets].sort((a, b) => a.y - b.y)
+            const totalH = sorted.reduce((sum, e) => sum + e.height, 0)
+            const span = sorted[sorted.length - 1].y + sorted[sorted.length - 1].height - sorted[0].y
+            const gap = (span - totalH) / (sorted.length - 1)
+            let cursor = sorted[0].y
+            for (const el of sorted) {
+              const found = state.elements.find((e) => e.id === el.id)
+              if (found) { found.y = Math.round(cursor); cursor += found.height + gap }
+            }
+          }
         }),
     })),
     { limit: 50 }

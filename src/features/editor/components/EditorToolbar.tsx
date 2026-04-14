@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   MousePointer2, Square, Type, Circle, Undo2, Redo2, Grid3X3,
-  ZoomIn, ZoomOut, Maximize2, Download, LayoutTemplate, Image, FileCode, ChevronDown,
+  ZoomIn, ZoomOut, Maximize2, Download, LayoutTemplate, Image, FileCode, ChevronDown, Clipboard, Check,
 } from 'lucide-react'
 import { useEditorStore } from '../stores/editorStore'
 import { useUIStore, type ActiveTool } from '../stores/uiStore'
@@ -12,7 +12,7 @@ import type { EditorElement } from '../types/elements'
 
 const PAD = 20
 
-function buildSvgString(elements: EditorElement[]): { svg: string; w: number; h: number; ox: number; oy: number } | null {
+function buildSvgString(elements: EditorElement[], canvasBg = 'transparent'): { svg: string; w: number; h: number; ox: number; oy: number } | null {
   const visible = elements.filter((e) => e.visible !== false)
   if (visible.length === 0) return null
 
@@ -27,6 +27,9 @@ function buildSvgString(elements: EditorElement[]): { svg: string; w: number; h:
   const oy = minY - PAD
 
   const parts: string[] = [`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${ox} ${oy} ${w} ${h}">`]
+  if (canvasBg && canvasBg !== 'transparent') {
+    parts.push(`  <rect x="${ox}" y="${oy}" width="${w}" height="${h}" fill="${canvasBg}"/>`)
+  }
   for (const el of visible) {
     const op = el.opacity !== 1 ? ` opacity="${el.opacity}"` : ''
     if (el.type === 'rect') {
@@ -55,8 +58,9 @@ function download(url: string, filename: string) {
 
 function useExportSVG() {
   const elements = useEditorStore((s) => s.elements)
+  const canvasBg = useUIStore((s) => s.canvasBg)
   return () => {
-    const result = buildSvgString(elements)
+    const result = buildSvgString(elements, canvasBg)
     if (!result) return
     const blob = new Blob([result.svg], { type: 'image/svg+xml' })
     const url = URL.createObjectURL(blob)
@@ -67,8 +71,9 @@ function useExportSVG() {
 
 function useExportPNG() {
   const elements = useEditorStore((s) => s.elements)
+  const canvasBg = useUIStore((s) => s.canvasBg)
   return (scale = 2) => {
-    const result = buildSvgString(elements)
+    const result = buildSvgString(elements, canvasBg)
     if (!result) return
     const { svg, w, h } = result
     const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
@@ -131,11 +136,13 @@ function Sep() {
 // Export dropdown
 function ExportMenu({ disabled }: { disabled: boolean }) {
   const [open, setOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const exportSVG = useExportSVG()
   const exportPNG = useExportPNG()
+  const elements = useEditorStore((s) => s.elements)
+  const canvasBg = useUIStore((s) => s.canvasBg)
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return
     const handler = (e: MouseEvent) => {
@@ -144,6 +151,23 @@ function ExportMenu({ disabled }: { disabled: boolean }) {
     window.addEventListener('mousedown', handler)
     return () => window.removeEventListener('mousedown', handler)
   }, [open])
+
+  const handleCopySVG = async () => {
+    const result = buildSvgString(elements, canvasBg)
+    if (!result) return
+    try {
+      await navigator.clipboard.writeText(result.svg)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Fallback: download instead
+      const blob = new Blob([result.svg], { type: 'image/svg+xml' })
+      const url = URL.createObjectURL(blob)
+      download(url, 'readmekit-export.svg')
+      URL.revokeObjectURL(url)
+    }
+    setOpen(false)
+  }
 
   return (
     <div ref={ref} className="relative">
@@ -159,14 +183,14 @@ function ExportMenu({ disabled }: { disabled: boolean }) {
               : 'bg-[#6366f1] text-white hover:bg-[#818cf8]',
         )}
       >
-        <Download size={14} />
+        {copied ? <Check size={14} /> : <Download size={14} />}
         Export
         <ChevronDown size={13} className={cn('transition-transform', open && 'rotate-180')} />
       </button>
 
       {open && (
         <div
-          className="absolute top-full right-0 mt-1.5 w-44 rounded-xl overflow-hidden z-50"
+          className="absolute top-full right-0 mt-1.5 w-48 rounded-xl overflow-hidden z-50"
           style={{
             background: '#1c1c20',
             border: '1px solid #3f3f46',
@@ -178,8 +202,16 @@ function ExportMenu({ disabled }: { disabled: boolean }) {
             onClick={() => { exportSVG(); setOpen(false) }}
           >
             <FileCode size={15} className="text-[#818cf8]" />
-            <span>SVG vectoriel</span>
+            <span>Télécharger SVG</span>
           </button>
+          <button
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#e4e4e7] hover:bg-[#27272a] transition-colors"
+            onClick={handleCopySVG}
+          >
+            <Clipboard size={15} className="text-[#a78bfa]" />
+            <span>Copier SVG</span>
+          </button>
+          <div className="h-px bg-[#2e2e33] mx-3 my-1" />
           <button
             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#e4e4e7] hover:bg-[#27272a] transition-colors"
             onClick={() => { exportPNG(2); setOpen(false) }}

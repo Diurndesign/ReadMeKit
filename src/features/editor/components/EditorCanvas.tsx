@@ -141,6 +141,7 @@ export function EditorCanvas() {
   const panOffset = useUIStore((s) => s.panOffset)
   const setPanOffset = useUIStore((s) => s.setPanOffset)
   const editingId = useUIStore((s) => s.editingId)
+  const canvasBg = useUIStore((s) => s.canvasBg)
   const { handlePointerDown } = useDragElement()
 
   const svgRef = useRef<SVGSVGElement>(null)
@@ -342,6 +343,11 @@ export function EditorCanvas() {
               </defs>
               <rect x={-10000} y={-10000} width={20000} height={20000} fill="url(#grid-large)" pointerEvents="none" />
             </>
+          )}
+
+          {/* Canvas background */}
+          {canvasBg && canvasBg !== 'transparent' && (
+            <rect x={-10000} y={-10000} width={20000} height={20000} fill={canvasBg} pointerEvents="none" />
           )}
 
           {/* Elements */}

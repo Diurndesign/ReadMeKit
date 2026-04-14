@@ -5,9 +5,11 @@ import { LayerPanel } from '@/features/editor/components/LayerPanel'
 import { OnboardingOverlay } from '@/features/editor/components/OnboardingOverlay'
 import { TemplatesPanel } from '@/features/editor/components/TemplatesPanel'
 import { useKeyboardShortcuts } from '@/features/editor/hooks/useKeyboardShortcuts'
+import { useAutoSave } from '@/features/editor/hooks/useAutoSave'
 
 export default function App() {
   useKeyboardShortcuts()
+  useAutoSave()
 
   return (
     <div className="flex flex-col h-screen w-screen bg-[#0f0f11]">

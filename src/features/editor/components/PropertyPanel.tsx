@@ -1,8 +1,12 @@
 import {
   Copy, ChevronUp, ChevronDown, X, AlignLeft, AlignCenter, AlignRight,
   Trash2, Square, Circle, Type, Move,
+  AlignStartVertical, AlignCenterVertical, AlignEndVertical,
+  AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
+  AlignHorizontalSpaceAround, AlignVerticalSpaceAround,
 } from 'lucide-react'
 import { useEditorStore } from '../stores/editorStore'
+import { useUIStore } from '../stores/uiStore'
 import type { EditorElement, RectElement, TextElement, CircleElement } from '../types/elements'
 import { cn } from '@/utils/cn'
 
@@ -190,6 +194,45 @@ function TypeIcon({ type }: { type: string }) {
   return <Move size={12} />
 }
 
+// ─── Canvas settings ─────────────────────────────────────────────────────────
+
+function CanvasSettings() {
+  const canvasBg = useUIStore((s) => s.canvasBg)
+  const setCanvasBg = useUIStore((s) => s.setCanvasBg)
+  const isTransparent = canvasBg === 'transparent' || canvasBg === ''
+  return (
+    <>
+      <SectionLabel>Fond du canvas</SectionLabel>
+      <div className="flex items-center gap-2">
+        <label className="text-xs text-[#71717a] w-8 shrink-0 text-right">Coul.</label>
+        <div className="flex items-center gap-1.5 flex-1 h-7 px-1.5 bg-[#0f0f11] border border-[#2e2e33] rounded focus-within:border-[#6366f1] transition-colors">
+          <input
+            type="color"
+            value={isTransparent ? '#0f0f11' : canvasBg}
+            onChange={(e) => setCanvasBg(e.target.value)}
+            className="w-5 h-5 rounded-sm cursor-pointer border-0 bg-transparent shrink-0 p-0"
+          />
+          <input
+            type="text"
+            value={isTransparent ? 'transparent' : canvasBg}
+            onChange={(e) => setCanvasBg(e.target.value)}
+            className="flex-1 text-xs bg-transparent text-[#e4e4e7] focus:outline-none font-mono min-w-0"
+          />
+        </div>
+        {!isTransparent && (
+          <button
+            onClick={() => setCanvasBg('transparent')}
+            title="Fond transparent"
+            className="w-6 h-6 flex items-center justify-center rounded text-[#71717a] hover:text-white hover:bg-[#27272a] transition-colors shrink-0"
+          >
+            <X size={12} />
+          </button>
+        )}
+      </div>
+    </>
+  )
+}
+
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
 export function PropertyPanel() {
@@ -201,6 +244,8 @@ export function PropertyPanel() {
   const clearSelection = useEditorStore((s) => s.clearSelection)
   const bringForward = useEditorStore((s) => s.bringForward)
   const sendBackward = useEditorStore((s) => s.sendBackward)
+  const alignElements = useEditorStore((s) => s.alignElements)
+  const distributeElements = useEditorStore((s) => s.distributeElements)
 
   const primaryId = selectedIds[selectedIds.length - 1] ?? null
   const selectedElement = elements.find((e) => e.id === primaryId)
@@ -210,28 +255,35 @@ export function PropertyPanel() {
     return (
       <div
         data-onboarding="panel"
-        className="w-60 border-l border-[#2e2e33] bg-[#18181b] flex flex-col items-center justify-center text-center px-5"
+        className="w-60 border-l border-[#2e2e33] bg-[#18181b] flex flex-col overflow-y-auto"
       >
-        <div className="w-10 h-10 rounded-xl bg-[#27272a] flex items-center justify-center mb-3">
-          <Move size={18} className="text-[#52525b]" />
+        <div className="flex flex-col items-center justify-center text-center px-5 py-8">
+          <div className="w-10 h-10 rounded-xl bg-[#27272a] flex items-center justify-center mb-3">
+            <Move size={18} className="text-[#52525b]" />
+          </div>
+          <p className="text-xs text-[#71717a] leading-relaxed">
+            Sélectionne un élément pour modifier ses propriétés
+          </p>
+          <p className="text-[11px] text-[#3f3f46] mt-2 leading-relaxed">
+            Glisser sur le canvas pour sélectionner plusieurs éléments
+          </p>
         </div>
-        <p className="text-xs text-[#71717a] leading-relaxed">
-          Sélectionne un élément pour modifier ses propriétés
-        </p>
-        <p className="text-[11px] text-[#3f3f46] mt-2 leading-relaxed">
-          Glisser sur le canvas pour sélectionner plusieurs éléments
-        </p>
+        <Divider />
+        <div className="px-4 pb-4">
+          <CanvasSettings />
+        </div>
       </div>
     )
   }
 
   // ── Multi-selection ────────────────────────────────────────────────────────
   if (selectedIds.length > 1) {
+    const canDistribute = selectedIds.length >= 3
     return (
       <div data-onboarding="panel" className="w-60 border-l border-[#2e2e33] bg-[#18181b] overflow-y-auto">
         <div className="p-4">
           {/* Header */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded bg-[#27272a] flex items-center justify-center">
                 <Move size={13} className="text-[#a1a1aa]" />
@@ -249,9 +301,51 @@ export function PropertyPanel() {
             </button>
           </div>
 
-          <p className="text-[11px] text-[#52525b] leading-relaxed mb-4">
-            Shift+clic pour ajouter/retirer. Glisser pour déplacer le groupe.
-          </p>
+          {/* Alignment tools */}
+          <SectionLabel>Aligner</SectionLabel>
+          <div className="grid grid-cols-3 gap-1 mb-1">
+            {([
+              { dir: 'left', Icon: AlignStartVertical, title: 'Aligner à gauche' },
+              { dir: 'center-h', Icon: AlignCenterVertical, title: 'Centrer horizontalement' },
+              { dir: 'right', Icon: AlignEndVertical, title: 'Aligner à droite' },
+              { dir: 'top', Icon: AlignStartHorizontal, title: 'Aligner en haut' },
+              { dir: 'middle-v', Icon: AlignCenterHorizontal, title: 'Centrer verticalement' },
+              { dir: 'bottom', Icon: AlignEndHorizontal, title: 'Aligner en bas' },
+            ] as const).map(({ dir, Icon, title }) => (
+              <button
+                key={dir}
+                title={title}
+                onClick={() => alignElements(selectedIds, dir)}
+                className="h-7 flex items-center justify-center rounded bg-[#0f0f11] border border-[#2e2e33] text-[#71717a] hover:border-[#6366f1] hover:text-white transition-colors"
+              >
+                <Icon size={13} />
+              </button>
+            ))}
+          </div>
+
+          {canDistribute && (
+            <>
+              <SectionLabel>Distribuer</SectionLabel>
+              <div className="grid grid-cols-2 gap-1">
+                <button
+                  title="Distribuer horizontalement"
+                  onClick={() => distributeElements(selectedIds, 'h')}
+                  className="h-7 flex items-center justify-center gap-1.5 rounded bg-[#0f0f11] border border-[#2e2e33] text-[#71717a] hover:border-[#6366f1] hover:text-white transition-colors text-[10px]"
+                >
+                  <AlignHorizontalSpaceAround size={12} />
+                  Horiz.
+                </button>
+                <button
+                  title="Distribuer verticalement"
+                  onClick={() => distributeElements(selectedIds, 'v')}
+                  className="h-7 flex items-center justify-center gap-1.5 rounded bg-[#0f0f11] border border-[#2e2e33] text-[#71717a] hover:border-[#6366f1] hover:text-white transition-colors text-[10px]"
+                >
+                  <AlignVerticalSpaceAround size={12} />
+                  Vert.
+                </button>
+              </div>
+            </>
+          )}
 
           <Divider />
 

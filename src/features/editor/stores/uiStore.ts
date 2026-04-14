@@ -9,6 +9,7 @@ interface UIState {
   panOffset: { x: number; y: number }
   editingId: string | null
   showTemplates: boolean
+  canvasBg: string
 
   setActiveTool: (tool: ActiveTool) => void
   setZoom: (zoom: number) => void
@@ -17,6 +18,7 @@ interface UIState {
   resetView: () => void
   setEditingId: (id: string | null) => void
   setShowTemplates: (show: boolean) => void
+  setCanvasBg: (color: string) => void
 }
 
 export const useUIStore = create<UIState>()((set) => ({
@@ -26,6 +28,7 @@ export const useUIStore = create<UIState>()((set) => ({
   panOffset: { x: 0, y: 0 },
   editingId: null,
   showTemplates: false,
+  canvasBg: 'transparent',
 
   setActiveTool: (tool) => set({ activeTool: tool }),
   setZoom: (zoom) => set({ zoom: Math.max(0.1, Math.min(5, zoom)) }),
@@ -34,4 +37,5 @@ export const useUIStore = create<UIState>()((set) => ({
   resetView: () => set({ zoom: 1, panOffset: { x: 0, y: 0 } }),
   setEditingId: (id) => set({ editingId: id }),
   setShowTemplates: (show) => set({ showTemplates: show }),
+  setCanvasBg: (color) => set({ canvasBg: color }),
 }))
