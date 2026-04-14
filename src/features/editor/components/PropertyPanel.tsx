@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import {
   Copy, X, AlignLeft, AlignCenter, AlignRight,
-  Trash2, Square, Circle, Type, Move, Minus, Image, Moon,
+  Trash2, Square, Circle, Type, Minus, Image, Moon,
   AlignStartVertical, AlignCenterVertical, AlignEndVertical,
   AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround,
@@ -230,60 +230,11 @@ function GradientToggle({ active, onToggle }: { active: boolean; onToggle: () =>
   )
 }
 
-function RectProperties({ element, onUpdate }: { element: RectElement; onUpdate: (u: Partial<RectElement>) => void }) {
-  const hasGradient = !!(element.gradientFrom && element.gradientTo)
-  return (
-    <>
-      <SectionLabel>Remplissage</SectionLabel>
-      {!hasGradient && (
-        <ColorInput label="Fill" value={element.fill} onChange={(v) => onUpdate({ fill: v })} />
-      )}
-      <div className="flex items-center justify-between mt-1.5">
-        <span className="text-xs text-[#71717a]">Dégradé</span>
-        <GradientToggle
-          active={hasGradient}
-          onToggle={() => {
-            if (hasGradient) {
-              onUpdate({ gradientFrom: undefined, gradientTo: undefined, gradientAngle: undefined })
-            } else {
-              onUpdate({ gradientFrom: element.fill, gradientTo: '#ec4899', gradientAngle: 90 })
-            }
-          }}
-        />
-      </div>
-      {hasGradient && (
-        <>
-          <div className="mt-1.5 space-y-1.5">
-            <ColorInput label="De" value={element.gradientFrom!} onChange={(v) => onUpdate({ gradientFrom: v })} />
-            <ColorInput label="À" value={element.gradientTo!} onChange={(v) => onUpdate({ gradientTo: v })} />
-          </div>
-          <div className="flex items-center gap-2 mt-1.5">
-            <label className="text-xs text-[#71717a] w-8 shrink-0 text-right">°</label>
-            <input
-              type="range" min="0" max="360" step="15"
-              value={element.gradientAngle ?? 90}
-              onChange={(e) => onUpdate({ gradientAngle: Number(e.target.value) })}
-              className="flex-1 accent-[#6366f1] h-1"
-            />
-            <span className="text-xs text-[#71717a] w-9 text-right tabular-nums">
-              {element.gradientAngle ?? 90}°
-            </span>
-          </div>
-        </>
-      )}
-      <DarkFillRow value={element.darkFill} onChange={(v) => onUpdate({ darkFill: v })} />
-      <SectionLabel>Bordure</SectionLabel>
-      <ColorInput label="Coul." value={element.stroke === 'transparent' ? '#000000' : element.stroke} onChange={(v) => onUpdate({ stroke: v })} />
-      <div className="grid grid-cols-2 gap-1.5 mt-1.5">
-        <PropertyInput label="Ép." value={element.strokeWidth} type="number" onChange={(v) => onUpdate({ strokeWidth: Math.max(0, Number(v)) })} />
-        <PropertyInput label="Rx" value={element.cornerRadius} type="number" onChange={(v) => onUpdate({ cornerRadius: Math.max(0, Number(v)) })} />
-      </div>
-    </>
-  )
-}
+type FillShapeEl = RectElement | CircleElement
 
-function CircleProperties({ element, onUpdate }: { element: CircleElement; onUpdate: (u: Partial<CircleElement>) => void }) {
+function FillShapeProperties({ element, onUpdate }: { element: FillShapeEl; onUpdate: (u: Partial<FillShapeEl>) => void }) {
   const hasGradient = !!(element.gradientFrom && element.gradientTo)
+  const defaultGradientTo = element.type === 'rect' ? '#ec4899' : '#a78bfa'
   return (
     <>
       <SectionLabel>Remplissage</SectionLabel>
@@ -294,13 +245,10 @@ function CircleProperties({ element, onUpdate }: { element: CircleElement; onUpd
         <span className="text-xs text-[#71717a]">Dégradé</span>
         <GradientToggle
           active={hasGradient}
-          onToggle={() => {
-            if (hasGradient) {
-              onUpdate({ gradientFrom: undefined, gradientTo: undefined, gradientAngle: undefined })
-            } else {
-              onUpdate({ gradientFrom: element.fill, gradientTo: '#a78bfa', gradientAngle: 90 })
-            }
-          }}
+          onToggle={() => hasGradient
+            ? onUpdate({ gradientFrom: undefined, gradientTo: undefined, gradientAngle: undefined })
+            : onUpdate({ gradientFrom: element.fill, gradientTo: defaultGradientTo, gradientAngle: 90 })
+          }
         />
       </div>
       {hasGradient && (
@@ -317,17 +265,18 @@ function CircleProperties({ element, onUpdate }: { element: CircleElement; onUpd
               onChange={(e) => onUpdate({ gradientAngle: Number(e.target.value) })}
               className="flex-1 accent-[#6366f1] h-1"
             />
-            <span className="text-xs text-[#71717a] w-9 text-right tabular-nums">
-              {element.gradientAngle ?? 90}°
-            </span>
+            <span className="text-xs text-[#71717a] w-9 text-right tabular-nums">{element.gradientAngle ?? 90}°</span>
           </div>
         </>
       )}
       <DarkFillRow value={element.darkFill} onChange={(v) => onUpdate({ darkFill: v })} />
       <SectionLabel>Bordure</SectionLabel>
       <ColorInput label="Coul." value={element.stroke === 'transparent' ? '#000000' : element.stroke} onChange={(v) => onUpdate({ stroke: v })} />
-      <div className="mt-1.5">
+      <div className={cn('mt-1.5', element.type === 'rect' && 'grid grid-cols-2 gap-1.5')}>
         <PropertyInput label="Ép." value={element.strokeWidth} type="number" onChange={(v) => onUpdate({ strokeWidth: Math.max(0, Number(v)) })} />
+        {element.type === 'rect' && (
+          <PropertyInput label="Rx" value={element.cornerRadius} type="number" onChange={(v) => onUpdate({ cornerRadius: Math.max(0, Number(v)) })} />
+        )}
       </div>
     </>
   )
@@ -751,11 +700,8 @@ export function PropertyPanel() {
         {/* Properties */}
         <CommonProperties element={selectedElement} onUpdate={handleUpdate} />
 
-        {selectedElement.type === 'rect' && (
-          <RectProperties element={selectedElement} onUpdate={handleUpdate} />
-        )}
-        {selectedElement.type === 'circle' && (
-          <CircleProperties element={selectedElement} onUpdate={handleUpdate} />
+        {(selectedElement.type === 'rect' || selectedElement.type === 'circle') && (
+          <FillShapeProperties element={selectedElement} onUpdate={handleUpdate} />
         )}
         {selectedElement.type === 'text' && (
           <TextProperties element={selectedElement} onUpdate={handleUpdate} />
