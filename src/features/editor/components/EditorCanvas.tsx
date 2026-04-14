@@ -203,25 +203,22 @@ export function EditorCanvas() {
   }, [])
 
   // Wheel: Ctrl = zoom centered on cursor; otherwise = pan
+  // Lire depuis getState() pour éviter la closure périmée lors du scroll rapide
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault()
+    const { zoom: z, panOffset: pan } = useUIStore.getState()
     if (e.ctrlKey || e.metaKey) {
       const factor = e.deltaY < 0 ? 1.1 : 0.9
-      const newZoom = Math.max(0.1, Math.min(5, zoom * factor))
+      const newZoom = Math.max(0.1, Math.min(5, z * factor))
       const rect = svgRef.current!.getBoundingClientRect()
       const mx = e.clientX - rect.left
       const my = e.clientY - rect.top
-      const newPanX = mx / zoom + panOffset.x - mx / newZoom
-      const newPanY = my / zoom + panOffset.y - my / newZoom
       setZoom(newZoom)
-      setPanOffset({ x: newPanX, y: newPanY })
+      setPanOffset({ x: mx / z + pan.x - mx / newZoom, y: my / z + pan.y - my / newZoom })
     } else {
-      // Scroll = pan (trackpad-friendly; deltaX for horizontal, deltaY for vertical)
-      const dx = e.deltaX / zoom
-      const dy = e.deltaY / zoom
-      setPanOffset({ x: panOffset.x + dx, y: panOffset.y + dy })
+      setPanOffset({ x: pan.x + e.deltaX / z, y: pan.y + e.deltaY / z })
     }
-  }, [zoom, panOffset, setZoom, setPanOffset])
+  }, [setZoom, setPanOffset])
 
   useEffect(() => {
     const svg = svgRef.current
