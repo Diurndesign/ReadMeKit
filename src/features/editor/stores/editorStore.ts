@@ -23,6 +23,7 @@ interface EditorState {
   sendBackward: (id: string) => void
   bringToFront: (id: string) => void
   sendToBack: (id: string) => void
+  reorderElement: (id: string, toIndex: number) => void
   duplicateElement: (id: string) => void
   toggleElementVisibility: (id: string) => void
   toggleElementLock: (id: string) => void
@@ -144,6 +145,14 @@ export const useEditorStore = create<EditorState>()(
           if (idx < 0) return
           const [el] = state.elements.splice(idx, 1)
           state.elements.unshift(el)
+        }),
+
+      reorderElement: (id, toIndex) =>
+        set((state) => {
+          const idx = state.elements.findIndex((e) => e.id === id)
+          if (idx < 0) return
+          const [el] = state.elements.splice(idx, 1)
+          state.elements.splice(Math.max(0, Math.min(toIndex, state.elements.length)), 0, el)
         }),
 
       duplicateElement: (id) =>
